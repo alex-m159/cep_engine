@@ -277,7 +277,7 @@ object Main extends App {
       val query_json = req.body()
       createQuery(query_json) match {
         case Failure(exception) =>
-          println("Failure")
+          println(s"Failure: ${exception}")
           Map("ok" -> false).asJson.noSpaces
         case Success(query_id) =>
           println("Accepted query")

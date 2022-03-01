@@ -13,6 +13,8 @@ from logging import Logger
 from typing import Optional, Any, List, Dict, Tuple
 import os
 
+from flask_cors import CORS
+
 logger = Logger("cep console")
 
 def submit_query(query_string):
@@ -71,7 +73,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 socketio = SocketIO(app)
-
+CORS(app)
 # Map room names to threads
 emit_threads: Dict[str, Thread] = {}
 
@@ -239,11 +241,13 @@ def all_queries():
     pretty = [{'query_string': json_to_pretty(query_ast), 'query_id': query_id} for query_id, query_ast in queries.items()]
     # for p in pretty:
     #     print(p)
+    print("Returning all queries")
     return jsonify({"queries": pretty})
 
 
 @app.route('/query', methods=['POST', 'PUT'])
 def query():
+    print(request.json)
     query_string = request.json['query']
     # global query_raw
     # query_raw = words
