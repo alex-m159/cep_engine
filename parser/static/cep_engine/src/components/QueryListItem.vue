@@ -61,6 +61,8 @@ function deleteQuery() {
             <font-awesome-icon icon="trash" />
         </button>
     </div>
+    <!-- TODO: Add display to show live updating panel of query metrics -->
+    <!-- TODO: Add display to show live updating panel of query matches -->
 </template>
 
 <style>

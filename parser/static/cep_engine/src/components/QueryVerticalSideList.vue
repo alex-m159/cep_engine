@@ -2,11 +2,12 @@
 
 import type {Query, QueryStoreT} from '../stores/query'
 import QueryListItem from './QueryListItem.vue'
-
+import type { ActiveQueryStoreT } from '../stores/activeQuery';
 import {ref, type Ref} from 'vue'
 
 interface Props {
-    queryStore: QueryStoreT
+    queryStore: QueryStoreT,
+    activeQueryStore: ActiveQueryStoreT
 }
 
 const props = defineProps<Props>()
@@ -17,14 +18,18 @@ function deleteItem(queryId: number) {
     props.queryStore.deleteQuery(queryId)
 }
 
-let activeQueryId = ref(0)
+let activeQueryId = ref(props.activeQueryStore.current)
 let activeQuery: Ref<Query | null> = ref(null)
 function setActive(qid: number) {
     activeQueryId.value = qid
     activeQuery.value = props.queryStore.queriesAsMap.get(qid) as Query
+    props.activeQueryStore.set(qid)
 } 
 
 let listHidden = ref(true)
+if(props.activeQueryStore.current != null) {
+    setActive(props.activeQueryStore.current)
+}
 
 </script>
 <template>

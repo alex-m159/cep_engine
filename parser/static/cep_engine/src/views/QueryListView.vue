@@ -4,14 +4,17 @@ import QueryListItem from '@/components/QueryListItem.vue'
 import QueryEditor from '@/components/QueryEditor.vue';
 import {onMounted, onUnmounted, ref, type Ref} from 'vue'
 import type {Query, QueryStoreT} from "../stores/query"
+import type {ActiveQueryStoreT} from '../stores/activeQuery'
 import {pinia} from "../stores/query"
 import QueryStore from '../stores/query'
+import ActiveQueryStore from '../stores/activeQuery'
 import QueryListCenterList from '../components/QueryListCenterList.vue'
 import QueryVerticalSideList from '../components/QueryVerticalSideList.vue'
 import {backendIp} from '../config'
 
 // const props = defineProps<QueryStoreProp>()
 const queryStore: QueryStoreT = QueryStore(pinia)
+const activeQueryStore: ActiveQueryStoreT = ActiveQueryStore(pinia)
 
 
 // console.log("Props")
@@ -57,6 +60,7 @@ onUnmounted(() => {
 })
 
 let showingEditor = ref(false)
+
 </script>
 
 <template>
@@ -77,6 +81,6 @@ let showingEditor = ref(false)
       </div>
     </div>
     <!-- <QueryListCenterList :query-store="queryStore"></QueryListCenterList> -->
-    <QueryVerticalSideList :query-store="queryStore"></QueryVerticalSideList>
+    <QueryVerticalSideList :query-store="queryStore" :active-query-store="activeQueryStore"></QueryVerticalSideList>
   </main>
 </template>
