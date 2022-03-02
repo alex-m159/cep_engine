@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import type {QueryStoreT} from '../stores/query'
-import QueryListItem from '../components/QueryListItem.vue'
+import QueryListItem from './QueryListItem.vue'
 
 interface Props {
     queryStore: QueryStoreT
@@ -17,8 +17,8 @@ function deleteItem(queryId: number) {
 
 </script>
 <template>
-<div v-for="query in props.queryStore.queriesAsList" class="accordion" id="accordionExample">
-        <div class="accordion-item">
+    <div class="accordion" id="accordionExample">
+        <div v-for="query in props.queryStore.queriesAsList" class="accordion-item">
             <h2 class="accordion-header" :id="`heading-${query.queryId}`">
                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" :data-bs-target="`#collapse-${query.queryId}`" aria-expanded="false" :aria-controls="`collapse-${query.queryId}`">
                     Query: {{query.queryId}}

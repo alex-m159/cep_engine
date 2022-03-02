@@ -1,0 +1,1 @@
+export const backendIp = "localhost:5000"

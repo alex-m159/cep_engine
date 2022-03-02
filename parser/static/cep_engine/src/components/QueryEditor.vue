@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {onMounted, onUnmounted, ref, type Ref} from 'vue'
 import type {QueryStoreT, Query} from '../stores/query'
- 
+import {backendIp} from '../config' 
 
 let query = ref("")
 
@@ -19,8 +19,9 @@ function submitQuery() {
             query: query.value
         })
     }
+    
     options.headers.set('Content-Type', 'application/json')
-    fetch("http://localhost:5000/query", options)
+    fetch(`http://${backendIp}/query`, options)
     .then((resp) => resp.json())
     .then((data) => {
         console.log("Query Submission Response:")

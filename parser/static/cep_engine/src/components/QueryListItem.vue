@@ -2,6 +2,7 @@
 
 import {ref, onMounted} from 'vue'
 import type {Query} from '../stores/query'
+import {backendIp} from '../config'
 
 interface Props {
     query: Query
@@ -20,8 +21,9 @@ function deleteQuery() {
             query: props.query.query
         })
     }
+    
     options.headers.set('Content-Type', 'application/json')
-    fetch("http://localhost:5000/query/delete", options)
+    fetch(`http://${backendIp}/query/delete`, options)
     .then((res) => res.json())
     .then((data) => {
         if(data["ok"] == 1) {

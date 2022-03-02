@@ -6,7 +6,9 @@ import {onMounted, onUnmounted, ref, type Ref} from 'vue'
 import type {Query, QueryStoreT} from "../stores/query"
 import {pinia} from "../stores/query"
 import QueryStore from '../stores/query'
-import QueryList from '../components/QueryList.vue'
+import QueryListCenterList from '../components/QueryListCenterList.vue'
+import QueryVerticalSideList from '../components/QueryVerticalSideList.vue'
+import {backendIp} from '../config'
 
 // const props = defineProps<QueryStoreProp>()
 const queryStore: QueryStoreT = QueryStore(pinia)
@@ -30,7 +32,7 @@ onMounted(() => {
     let options = {
         mode: 'GET',
     }
-    fetch("http://localhost:5000/query")
+    fetch(`http://${backendIp}/query`)
     .then((r) => {
 
         return r.json()
@@ -55,7 +57,6 @@ onUnmounted(() => {
 })
 
 let showingEditor = ref(false)
-
 </script>
 
 <template>
@@ -63,24 +64,19 @@ let showingEditor = ref(false)
     <h2 v-if="queryStore.queriesAsList.length == 0">No queries running</h2>
 
     <div class="m-3">
-        <button 
-         v-if="!showingEditor"
-         @click="showingEditor = true"
-         class="btn btn-danger">
-            New Query
-            <font-awesome-icon icon="pen" />
-        </button>
-        <button 
-         v-if="showingEditor"
-         @click="showingEditor = false"
-         class="btn btn-danger">
-            Close
-            <font-awesome-icon icon="x" />
-        </button>
-        <div v-if="showingEditor" class="my-2">
-            <QueryEditor :query-store="queryStore"></QueryEditor>
-        </div>
+      <button v-if="!showingEditor" @click="showingEditor = true" class="btn btn-danger">
+        New Query
+        <font-awesome-icon icon="pen" />
+      </button>
+      <button v-if="showingEditor" @click="showingEditor = false" class="btn btn-danger">
+        Close
+        <font-awesome-icon icon="x" />
+      </button>
+      <div v-if="showingEditor" class="my-2">
+        <QueryEditor :query-store="queryStore"></QueryEditor>
+      </div>
     </div>
-    <QueryList :query-store="queryStore"></QueryList>
+    <!-- <QueryListCenterList :query-store="queryStore"></QueryListCenterList> -->
+    <QueryVerticalSideList :query-store="queryStore"></QueryVerticalSideList>
   </main>
 </template>

@@ -27,31 +27,28 @@ import "bootstrap/dist/css/bootstrap.min.css";
           data-bs-target="#navbarSupportedContent"
           aria-controls="navbarSupportedContent"
           aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
+          aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
 
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-              <li class="nav-item">
-                <!-- <a class="nav-link active" aria-current="page" href="#">Home</a> -->
-                <RouterLink to="/" class="nav-link active text-light">Home</RouterLink>
-              </li>
-              <li class="nav-item">
-                <!-- <a class="nav-link" href="#">Link</a> -->
-                <RouterLink to="/about" class="nav-link active text-light"
-                  >About</RouterLink
-                >
-              </li>
-              <li class="nav-item">
-                <RouterLink to="/queries" class="nav-link active text-light"
-                  >Queries</RouterLink
-                >
-              </li>
-            </ul>
-          </div>
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item">
+              <!-- <a class="nav-link active" aria-current="page" href="#">Home</a> -->
+              <RouterLink to="/" class="nav-link active text-light">Home</RouterLink>
+            </li>
+            <li class="nav-item">
+              <!-- <a class="nav-link" href="#">Link</a> -->
+              <RouterLink to="/about" class="nav-link active text-light"
+                >About</RouterLink
+              >
+            </li>
+            <li class="nav-item">
+              <RouterLink to="/queries" class="nav-link active text-light"
+                >Queries</RouterLink
+              >
+            </li>
+          </ul>
           <form class="d-flex">
             <input
               class="form-control me-2"
