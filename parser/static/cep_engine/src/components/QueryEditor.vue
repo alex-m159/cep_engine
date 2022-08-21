@@ -3,14 +3,14 @@ import {onMounted, onUnmounted, ref, type Ref} from 'vue'
 import type {QueryStoreT, Query} from '../stores/query'
 import {backendIp} from '../config' 
 
-let query = ref("")
+let query = ref('')
 
 interface Props {
     queryStore: QueryStoreT
 }
 
 const props = defineProps<Props>()
-
+let error_message = ref("")
 function submitQuery() {
     let options = {
         method: 'POST',
@@ -34,7 +34,7 @@ function submitQuery() {
             props.queryStore.upsertQuery(queryToAdd)
             query.value = ""
         } else {
-            alert("Query submission failed")
+            error_message.value = data['err']
         }
     })
     .catch((err) => {
@@ -49,8 +49,9 @@ function submitQuery() {
 
     <div>
         <div>
-            <textarea class="form-control" rows="8" cols="40" v-model="query"></textarea>
+            <textarea class="form-control" rows="8" cols="40" v-model="query" v-bind:class=" {'border': (error_message !== ''), 'border-danger': (error_message !== ''), 'error-editor': (error_message !== '')} "></textarea>
         </div>
+        <div class="text-danger" v-if="error_message !== ''">{{error_message}}</div>
         <div class="my-2">
             <button @click="submitQuery()" type="submit" class="btn btn-primary">
                 Submit Query

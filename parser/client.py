@@ -1,3 +1,4 @@
+from socket import socket
 from flask import Flask, render_template, jsonify, request
 from cep_parser import l, CEPVisitor, words, json_to_pretty
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -12,8 +13,10 @@ import time
 from logging import Logger
 from typing import Optional, Any, List, Dict, Tuple
 import os
+from lark.exceptions import UnexpectedEOF
 
-from flask_cors import CORS
+
+from flask_cors import CORS, cross_origin
 
 logger = Logger("cep console")
 
@@ -72,7 +75,8 @@ query_raw = words
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
+
 CORS(app)
 # Map room names to threads
 emit_threads: Dict[str, Thread] = {}
@@ -143,6 +147,60 @@ def relative_seek(consumer: KafkaConsumer, topic, back=50):
     start_from = end_offset - offset_diff
     consumer.seek(partition, start_from)
 
+def get_beginning_and_end(consumer: KafkaConsumer, topic: str) -> Tuple[int, int]:
+    end_offset = get_end_offset(consumer, topic)
+    begin_offset = get_beginning_offset(consumer, topic)
+    return (begin_offset, end_offset)
+
+def get_message_subset(consumer: KafkaConsumer, topic: str, earliest=None, latest=None) -> List[Any]:
+    end_offset = get_end_offset(consumer, topic)
+    begin_offset = get_beginning_offset(consumer, topic)
+
+    if end_offset is None or begin_offset is None:
+        return []
+
+    partitions = get_partitions(consumer, topic)
+    assert len(partitions) == 1, "Output Kafka topic does not have exactly one partition!"
+    partition = partitions[0]
+
+    
+    
+    # import pdb;pdb.set_trace()
+    # consumer.poll()
+    consumer.seek(partition, earliest)
+    messages = []
+    curr_offset = earliest
+    print(f"start_from: {earliest} - end_offset: {latest} on topic {topic}")
+    print(f"Attempting to get {latest - earliest + 1} most recent messages from Kafka")
+    temp = defaultdict(list)
+    try:
+        while curr_offset < latest:
+            logger.info("Looping in loop")
+            records = consumer.poll(3000)
+            
+            print(f"records count: {len(records)}")
+            # import pdb;pdb.set_trace()
+            for (topic_part, msg_list) in records.items():
+                print(f"Partition: {topic_part}")
+                named = [{
+                    'match': msg.value,
+                    'offset': msg.offset,
+                    'timestamp': msg.timestamp
+                } for msg in msg_list]
+                temp[topic].extend(named)
+            assert topic in temp
+
+            ordered_msgs = list(sorted(temp[topic], key=lambda m: m['offset']))
+            filtered = filter(lambda m: earliest <= m["offset"] and m["offset"] <= latest, ordered_msgs)
+            if ordered_msgs:
+                messages.extend(filtered)
+            curr_offset = ordered_msgs[-1]['offset']
+        logger.info(f"Got recent messages from Kafka")
+        return messages
+
+    except Exception as ex:
+        logger.error("Could not get recent messages from Kafka", exc_info=True)
+        return []
 
 def get_recent_messages(consumer: KafkaConsumer, topic: str, most_recent: int = 50) -> List[Any]:
     """
@@ -181,16 +239,22 @@ def get_recent_messages(consumer: KafkaConsumer, topic: str, most_recent: int = 
             records = consumer.poll(3000)
             temp = defaultdict(list)
             print(f"records count: {len(records)}")
+            # import pdb;pdb.set_trace()
             for (topic_part, msg_list) in records.items():
                 print(f"Partition: {topic_part}")
-                temp[topic_part.topic].extend(msg_list)
+                named = [{
+                    'match': msg.value,
+                    'offset': msg.offset,
+                    'timestamp': msg.timestamp
+                } for msg in msg_list]
+                temp[topic_part.topic].extend(named)
 
             assert topic in temp
 
-            ordered_msgs = sorted(tmep[topic], key=lambda m: m.offset)
-            curr_offset = ordered_msgs[-1].offset
+            ordered_msgs = sorted(temp[topic], key=lambda m: m['offset'])
+            curr_offset = ordered_msgs[-1]['offset']
             messages.extend(ordered_msgs)
-        logger.info(f"Got recent messages from Kakfa")
+        logger.info(f"Got recent messages from Kafka")
         return messages
 
     except Exception as ex:
@@ -225,6 +289,29 @@ def query_history(event):
         emit_threads[room] = t
         emit_threads[room].start()
 
+@socketio.on("stream_range")
+def check_stream(event):
+    logger.info("====== Received stream_range from client ========")
+    consumer = KafkaConsumer(group_id=f'consumer-{time.time()}', value_deserializer=lambda msg: json.loads(msg))
+    topic = f"output-{event['query_id']}"
+    topic_part = TopicPartition(topic, 0)
+    consumer.assign([topic_part])
+    offset_range = get_beginning_and_end(consumer, topic)
+    print(f"Offset range: {offset_range}")
+    emit("offset_range", [offset_range[0], offset_range[1]])
+    consumer.close()
+
+@socketio.on('read_stream')
+def read_stream(event):
+    print("=== Received read_stream from client === ")
+    consumer = KafkaConsumer(group_id=f'consumer-{time.time()}', value_deserializer=lambda msg: json.loads(msg))
+    topic = f"output-{event['query_id']}"
+    topic_part = TopicPartition(topic, 0)
+    consumer.assign([topic_part])
+    for m in get_message_subset(consumer, topic, event["earliest"], event["latest"]):
+        emit("cep_match", m)
+    consumer.close()
+
 @app.route('/query/<qid>', methods=['GET'])
 def show_query(qid):
     all_q = get_all_queries()
@@ -251,10 +338,14 @@ def query():
     query_string = request.json['query']
     # global query_raw
     # query_raw = words
-    if query_string:
-        query_id = submit_query(query_string)
-        if query_id:
-            return jsonify({'ok': 1, 'query_id': query_id})
+    try:
+        if query_string:
+            query_id = submit_query(query_string)
+            if query_id:
+                return jsonify({'ok': 1, 'query_id': query_id})
+    except UnexpectedEOF as e:
+        return jsonify({'ok': 0, 'err': str(e)})
+
     return jsonify({'ok': 0})
 
 @app.route('/query/delete', methods=['POST'])
@@ -344,13 +435,14 @@ def condense_data(data):
 
 @socketio.on("test_event")
 def test_event_ws(event):
-    logger.info("Received test_event message from client")
-    room = room_name(event['query_id'])
-    join_room(room)
-    if room not in emit_threads:
-        t = Thread(target=send_data, args=(event['query_id'],))
-        emit_threads[room] = t
-        emit_threads[room].start()
+    print("Received test_event message from client")
+    emit("test_event", {"data": "test data"})
+    # room = room_name(event['query_id'])
+    # join_room(room)
+    # if room not in emit_threads:
+    #     t = Thread(target=send_data, args=(event['query_id'],))
+    #     emit_threads[room] = t
+    #     emit_threads[room].start()
 
 
 
@@ -371,4 +463,4 @@ WHERE [token]
 """
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')
