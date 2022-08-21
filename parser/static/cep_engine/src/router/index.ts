@@ -3,7 +3,17 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 // @ts-ignore
 import QueryListView from '../views/QueryListView.vue'
+import type { QueryResultStoreT } from '@/stores/queryResult';
+import { QueryResultStore } from '@/stores/queryResult';
+import type {Query, QueryStoreT} from "../stores/query"
+import type {ActiveQueryStoreT} from '../stores/activeQuery'
+import {pinia} from "../stores/query"
+import QueryStore from '../stores/query'
+import ActiveQueryStore from '../stores/activeQuery'
 
+const queryStore: QueryStoreT = QueryStore(pinia)
+const activeQueryStore: ActiveQueryStoreT = ActiveQueryStore(pinia)
+const queryResultStore: QueryResultStoreT = QueryResultStore(pinia)
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -25,7 +35,12 @@ const router = createRouter({
     {
       path: '/queries',
       name: 'queries',
-      component: QueryListView  
+      component: QueryListView,
+      props: {
+        queryStore: queryStore,
+        activeQueryStore: activeQueryStore,
+        queryResultStore: queryResultStore
+      }
     }
   ]
 })

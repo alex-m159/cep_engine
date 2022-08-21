@@ -38,7 +38,7 @@ export let QueryResultStore = defineStore('query_result_store', {
 })
 
 
-export let queryResultStore = reactive(QueryResultStore(pinia))
+let queryResultStore = QueryResultStore(pinia)
 export type QueryResultStoreT = typeof queryResultStore
 
 export default queryResultStore

@@ -3,11 +3,13 @@
 import type {Query, QueryStoreT} from '../stores/query'
 import QueryListItem from './QueryListItem.vue'
 import type { ActiveQueryStoreT } from '../stores/activeQuery';
+import type {QueryResultStoreT} from '../stores/queryResult'
 import {ref, type Ref} from 'vue'
 
 interface Props {
     queryStore: QueryStoreT,
     activeQueryStore: ActiveQueryStoreT
+    queryResultStore: QueryResultStoreT
 }
 
 const props = defineProps<Props>()
@@ -24,16 +26,15 @@ function setActive(qid: number) {
     activeQueryId.value = qid
     activeQuery.value = props.queryStore.queriesAsMap.get(qid) as Query
     props.activeQueryStore.set(qid)
-} 
+}
 
 let listHidden = ref(true)
 if(props.activeQueryStore.current != null) {
     setActive(props.activeQueryStore.current)
 }
-
 </script>
 <template>
-    <!-- <div class="row">
+  <!-- <div class="row">
         <nav class="navbar navbar-light navbar-expand-md bg-secondary col-md-2">
             <div class="container">
                 <a class="navbar-brand" href="#">
@@ -72,39 +73,51 @@ if(props.activeQueryStore.current != null) {
             </div>
         </nav>
     </div> -->
-    <div class="row">
-        <nav class="navbar navbar-light navbar-expand-md col-md-2 d-block">
-            <div class="container px-0">
-                <a class="navbar-brand" href="#">
-            
-                </a>
-                <button
-                @click="listHidden = !listHidden"
-                class="navbar-toggler"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#navbarSupportedContent3"
-                aria-controls="navbarSupportedContent3"
-                aria-expanded="false"
-                aria-label="Query navigation">
-                <!-- <span class="fa-angle-down"></span> -->
-                <font-awesome-icon v-if="listHidden" icon="angle-down" />
-                <font-awesome-icon v-if="!listHidden" icon="angle-up" />
-                </button>
+  <div class="row">
+    <nav class="navbar navbar-light navbar-expand-md col-md-2 d-block">
+      <div class="container px-0">
+        <a class="navbar-brand" href="#"> </a>
+        <button
+          @click="listHidden = !listHidden"
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent3"
+          aria-controls="navbarSupportedContent3"
+          aria-expanded="false"
+          aria-label="Query navigation"
+        >
+          <!-- <span class="fa-angle-down"></span> -->
+          <font-awesome-icon v-if="listHidden" icon="angle-down" />
+          <font-awesome-icon v-if="!listHidden" icon="angle-up" />
+        </button>
 
-
-                <div class="navbar-collapse collapse" id="navbarSupportedContent3">
-                    <ul class="nav nav-pills flex-column navbar-nav ">
-                        <li v-for="query in props.queryStore.queriesAsList" class="nav-item">
-                            <p @click="setActive(query.queryId)"  v-bind:class="{active: activeQueryId == query.queryId}" :qid="query.queryId" class="nav-link text-dark" aria-current="page" href="#">Query: {{query.queryId}}</p>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-        <div class="col-md-10">
-            <QueryListItem v-if="activeQuery != null"  :query="activeQuery"></QueryListItem>
-            <h2 v-if="activeQuery == null">Select a query from the dropdown</h2>
+        <div class="navbar-collapse collapse" id="navbarSupportedContent3">
+          <ul class="nav nav-pills flex-column navbar-nav">
+            <li v-for="query in props.queryStore.queriesAsList" class="nav-item">
+              <p
+                @click="setActive(query.queryId)"
+                v-bind:class="{ active: activeQueryId == query.queryId }"
+                :qid="query.queryId"
+                class="nav-link text-dark"
+                aria-current="page"
+                href="#"
+              >
+                Query: {{ query.queryId }}
+              </p>
+            </li>
+          </ul>
         </div>
+      </div>
+    </nav>
+    <div class="col-md-10">
+      <QueryListItem v-if="activeQuery != null" :query="activeQuery" :query-result-store="props.queryResultStore"></QueryListItem>
+      <h2 v-if="activeQuery == null">Select a query from the dropdown</h2>
+
+      <!-- <h2 v-if="activeQuery === null || activeQuery === undefined">Select a query from the dropdown</h2>
+            <div v-for="query in props.queryStore.queriesAsList">
+                <QueryListItem :query="query"></QueryListItem>
+            </div> -->
     </div>
+  </div>
 </template>

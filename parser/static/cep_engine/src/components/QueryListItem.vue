@@ -3,7 +3,7 @@
 import {ref, onMounted, onUnmounted} from 'vue'
 import type {Ref} from 'vue'
 import type {Query} from '../stores/query'
-import {queryResultStore} from '../stores/queryResult'
+// import {queryResultStore} from '../stores/queryResult'
 import type {QueryResultStoreT, CEPMatch} from '../stores/queryResult'
 import {backendIp} from '../config'
 import { io, Socket} from "socket.io-client"
@@ -11,6 +11,7 @@ import type { DefaultEventsMap, EventNames, EventParams, EventsMap, Emitter } fr
 
 
 interface Props {
+    queryResultStore: QueryResultStoreT
     query: Query
 }
 
@@ -64,27 +65,9 @@ onMounted(() => {
     socket.value.on("cep_match", (match: CEPMatch) => {
         console.log("Socket IO recieved CEP MATCH")
         console.log(JSON.stringify(match))
-        queryResultStore.push(props.query.queryId, match)
-        console.log("Updating match_list:")
-        console.log(JSON.stringify(queryResultStore.asMap.get(props.query.queryId)))
-        match_list.value = 
-        Array.from(new Set((queryResultStore.asMap.get(props.query.queryId) as Array<CEPMatch>)
-        .values())
-        .values())
-        .sort((a: CEPMatch, b: CEPMatch) => {
-            if(a.offset < b.offset) {
-                return -1
-            } else if(a.offset === b.offset) {
-                return 0
-            } else {
-                return 1
-            }
-        }).reverse()
-        let visible_offsets = match_list.value.map((match) => match.offset)
-        console.log(`Visible offsets: ${visible_offsets.length}`)
-        min_offset.value = Math.min.apply(null, visible_offsets);
-        max_offset.value = Math.max.apply(null, visible_offsets);
-        console.log(`Min offset: ${min_offset}, max offset: ${max_offset}`)
+        console.log(`props.queryResultStore: ${props.queryResultStore}`)
+        props.queryResultStore.push(props.query.queryId, match)
+        updateMatchList()
     })
 
     socket.value.on("offset_range", (range: [number, number]) => {
@@ -106,7 +89,8 @@ onMounted(() => {
 
     console.log("Emitting test_event")
     socket.value.emit("test_event", "test data")
-    
+    updateMatchList()
+    console.log(`queryResultStore: ${props.queryResultStore.asMap.get(props.query.queryId)?.length}`)
 })
 
 onUnmounted(() => {
@@ -173,6 +157,37 @@ function onScroll(event: UIEvent) {
         // Should be able to accept parameter of where to start (ie start sending the data after the most recent we have)
         socket.value?.emit("stream_range", {"query_id": props.query.queryId})
     }
+}
+
+function updateMatchList() {
+    
+    console.log("Updating match_list:")
+    console.log(`props.query.queryId: ${props.query.queryId}`)
+    console.log(JSON.stringify(props.queryResultStore.asMap.get(props.query.queryId)))
+    match_list.value = 
+    Array.from(new Set((
+        props
+        .queryResultStore
+        .asMap
+        .get(props.query.queryId) as Array<CEPMatch>)
+        .values())
+        .values())
+        .sort((a: CEPMatch, b: CEPMatch) => {
+            if(a.offset < b.offset) {
+                return -1
+            } else if(a.offset === b.offset) {
+                return 0
+            } else {
+                return 1
+            }
+        })
+        .reverse()
+    let visible_offsets = match_list.value.map((match) => match.offset)
+    console.log(`Visible offsets: ${visible_offsets.length}`)
+    min_offset.value = Math.min.apply(null, visible_offsets);
+    max_offset.value = Math.max.apply(null, visible_offsets);
+    console.log(`Min offset: ${min_offset}, max offset: ${max_offset}`)
+    console.log(`queryResultStore: ${props.queryResultStore.asMap.get(props.query.queryId)?.length}`)
 }
 
 </script>

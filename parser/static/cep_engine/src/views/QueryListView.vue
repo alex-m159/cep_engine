@@ -11,10 +11,16 @@ import ActiveQueryStore from '../stores/activeQuery'
 import QueryListCenterList from '../components/QueryListCenterList.vue'
 import QueryVerticalSideList from '../components/QueryVerticalSideList.vue'
 import {backendIp} from '../config'
+import type { QueryResultStoreT } from '@/stores/queryResult';
+import { QueryResultStore } from '@/stores/queryResult';
 
-// const props = defineProps<QueryStoreProp>()
-const queryStore: QueryStoreT = QueryStore(pinia)
-const activeQueryStore: ActiveQueryStoreT = ActiveQueryStore(pinia)
+interface Props {
+  queryStore: QueryStoreT
+  activeQueryStore: ActiveQueryStoreT
+  queryResultStore: QueryResultStoreT
+}
+
+const props = defineProps<Props>()
 
 
 // console.log("Props")
@@ -44,7 +50,7 @@ onMounted(() => {
         let newData: Query[] = data.queries.map((item: any) => {return {queryId: item.query_id, query: item.query_string}})
 
         newData.forEach((q) => {
-            queryStore.upsertQuery(q)
+            props.queryStore.upsertQuery(q)
         })
         console.log("Result from backend")
         console.log(data)
@@ -60,12 +66,11 @@ onUnmounted(() => {
 })
 
 let showingEditor = ref(false)
-
 </script>
 
 <template>
   <main>
-    <h2 v-if="queryStore.queriesAsList.length == 0">No queries running</h2>
+    <h2 v-if="props.queryStore.queriesAsList.length == 0">No queries running</h2>
 
     <div class="m-3">
       <button v-if="!showingEditor" @click="showingEditor = true" class="btn btn-danger">
@@ -77,10 +82,14 @@ let showingEditor = ref(false)
         <font-awesome-icon icon="x" />
       </button>
       <div v-if="showingEditor" class="my-2">
-        <QueryEditor :query-store="queryStore"></QueryEditor>
+        <QueryEditor :query-store="props.queryStore"></QueryEditor>
       </div>
     </div>
     <!-- <QueryListCenterList :query-store="queryStore"></QueryListCenterList> -->
-    <QueryVerticalSideList :query-store="queryStore" :active-query-store="activeQueryStore"></QueryVerticalSideList>
+    <QueryVerticalSideList
+      :query-store="props.queryStore"
+      :active-query-store="props.activeQueryStore"
+      :query-result-store="props.queryResultStore"
+    ></QueryVerticalSideList>
   </main>
 </template>
