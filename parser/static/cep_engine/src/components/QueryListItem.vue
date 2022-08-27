@@ -2,17 +2,17 @@
 
 import {ref, onMounted, onUnmounted} from 'vue'
 import type {Ref} from 'vue'
-import type {Query} from '../stores/query'
+import type {QueryI, CEPMatch} from '../stores/query'
 // import {queryResultStore} from '../stores/queryResult'
-import type {QueryResultStoreT, CEPMatch} from '../stores/queryResult'
 import {backendIp} from '../config'
 import { io, Socket} from "socket.io-client"
 import type { DefaultEventsMap, EventNames, EventParams, EventsMap, Emitter } from "@socket.io/component-emitter";
-
+import { logger } from "../utils/logging"
+import AlertBanner from "./AlertBanner.vue"
+import { propsToAttrMap } from '@vue/shared'
 
 interface Props {
-    queryResultStore: QueryResultStoreT
-    query: Query
+    query: QueryI
 }
 
 interface ServerToClient {
@@ -20,6 +20,7 @@ interface ServerToClient {
     cep_match: (a: CEPMatch) => any
     test_event: (a: any) => any
     offset_range: (a: [number, number]) => any
+    error: (msg: string) => any
 }
 
 interface ClientToServer {
@@ -38,72 +39,54 @@ interface SocketData {
     else: number
 }
 
+const props = defineProps<Props>()
+const emit = defineEmits(["delete"])
+
 let socket: Ref<Socket<ServerToClient, ClientToServer> | null> = ref(null)
-
-let match_list = ref([{match: "adslasd", offset: 0, timestamp: 100000000}] as Array<CEPMatch>)
-
-
-let min_offset = ref(0)
-let max_offset = ref(0)
+let min_visible = ref(0)
+let max_visible = ref(0)
+let formattedQuery = ref("")
+let error_msg: Ref<string | undefined> = ref("")
+let earliest = ref(0)
+let latest = ref(0)
 
 onMounted(() => {
-    console.log("Query List Item mounted")
+    logger.debug("Query view panel mounted")
     if(socket.value == null ) {
         socket.value = io("ws://localhost:5000/")
     } else if( ! socket.value.connected) {
-        console.log("Connecting to WebSocket")
         socket.value.connect()
     }
 
-    
-    socket.value.on("noArg", () => {
-        console.log("received No Arg Event")
-    })
-    socket.value.on("test_event", (e) => {
-        console.log("Received test event from server")
-    })
+
     socket.value.on("cep_match", (match: CEPMatch) => {
-        console.log("Socket IO recieved CEP MATCH")
-        console.log(JSON.stringify(match))
-        console.log(`props.queryResultStore: ${props.queryResultStore}`)
-        props.queryResultStore.push(props.query.queryId, match)
+        props.query.add(match)        
         updateMatchList()
     })
 
     socket.value.on("offset_range", (range: [number, number]) => {
-        console.log(`Offset range event: ${JSON.stringify(range)}`)
-        let earliest = range[0]
-        let latest = range[1]
-        if(min_offset.value && (min_offset.value - 20) > earliest ) {
-            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": min_offset.value-1, "earliest": min_offset.value - 20})
-        } else if(min_offset.value && (min_offset.value - 20) <= earliest) {
-            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": min_offset.value-1, "earliest": earliest})
-        } else if((latest - earliest) > 20) {
-            // we have more than 20 events to read
-            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": latest, "earliest": latest - 19})
-        } else {
-            // we have less than 20 so just read all of them
-            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": latest, "earliest": earliest})
-        }
+        earliest.value = range[0]
+        latest.value = range[1]
+        logger.info(`Updated earliest and latest offsets: [${range[0]}, ${range[1]}]`)
     })
 
-    console.log("Emitting test_event")
-    socket.value.emit("test_event", "test data")
+    socket.value.on("error", (error: string) => {
+        error_msg.value = error
+    })
+
+    socket.value?.emit("stream_range", {"query_id": props.query.queryId})
     updateMatchList()
-    console.log(`queryResultStore: ${props.queryResultStore.asMap.get(props.query.queryId)?.length}`)
 })
 
 onUnmounted(() => {
     if(socket.value) {
-        console.log("Disconnecting from websocket")
+        logger.debug("Disconnecting from websocket")
         socket.value.disconnect()
     }
         
 })
-const props = defineProps<Props>()
-const emit = defineEmits(["delete"])
 
-let formattedQuery = ref("")
+
 
 function deleteQuery() {
     let options = {
@@ -120,74 +103,114 @@ function deleteQuery() {
     .then((data) => {
         if(data["ok"] == 1) {
             // delete this component
-            console.log("Deleting QUERY")
+            logger.debug("Deleting QUERY")
             emit("delete")
         } else {
-            console.log("NOT deleting query")
+            logger.debug("NOT deleting query")
             alert("Could not delete query")
         }
     })
     .catch((err) => {
-        console.log(err)
+        logger.error(err)
         alert("Error occurred while attempting to delete query")
     }) 
 }
 
 function readStream() {
     // socket.value?.emit("read_stream", {"query_id": props.query.queryId}, 10)
-    console.log("===== checking range ======")
-    socket.value?.emit("stream_range", {"query_id": props.query.queryId})
+    if(min_visible.value == 0 && max_visible.value == 0) {
+        getLatest()
+    } else if(props.query.results.length === 0) {
+        getLatest()
+    }
+}
+
+function getLatest() {
+    if(max_visible.value === 0) {
+        socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": latest.value, "earliest": latest.value - 19})
+    } else {
+        logger.debug("Called getLatest() when some values were already populated")
+    }
+}
+
+function getLater() {
+
+    if(max_visible.value !== min_visible.value) {
+        if((max_visible.value + 20) < latest.value ) {
+            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": max_visible.value + 20, "earliest": max_visible.value + 1})
+        } else  { 
+            // )max_visible.value + 20) >= latest.value
+            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": latest.value, "earliest": max_visible.value + 1})
+        }
+    } else {
+        if((latest.value - earliest.value) > 20) {
+            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": latest.value, "earliest": latest.value - 19})
+        } else {
+            // we have less than 20 so just read all of them
+            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": latest.value, "earliest": earliest.value})
+        }
+    }
+     
+}
+
+function getEarlier() {
+    if(min_visible.value !== max_visible.value) {
+        if((min_visible.value - 20) > earliest.value ) {
+            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": min_visible.value-1, "earliest": min_visible.value - 20})
+        } else {
+            // (min_visible.value - 20) <= earliest.value)
+            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": min_visible.value-1, "earliest": earliest.value})
+        }
+    } else {
+        if((latest.value - earliest.value) > 20) {
+            // we have more than 20 events to read
+            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": latest.value, "earliest": latest.value - 19})
+        } else {
+            // we have less than 20 so just read all of them
+            socket.value?.emit("read_stream", {"query_id": props.query.queryId, "latest": latest.value, "earliest": earliest.value})
+        }
+    }
 }
 
 function onScroll(event: UIEvent) {
-    console.log(`Running onScroll function - ${JSON.stringify(event)}`)
-    // offsetHeight is the height of the div
-    // scrollTop is the distance between the top of the div and the beginning of the content 
-    // (even if scrolled above the start of the div) 
-    // So offsetHeight + scrollTop should be the entire length of the div content when the 
-    // scrollable content is scrolled to the bottom.
-    let sum = (event.target as HTMLElement).offsetHeight + (event.target as HTMLElement).scrollTop
+    
+    // console.log(`offsetHeight: ${(event.target as HTMLElement).offsetHeight} - scrollTop: ${(event.target as HTMLElement).scrollTop}`)
+    if((event.target as HTMLElement).scrollTop === 0) {
+        // scrolled to the top
+        getLater()
+    } else {
+        // Scrolled to the bottom
+        // offsetHeight is the height of the div
+        // scrollTop is the distance between the top of the div and the beginning of the content 
+        // (even if scrolled above the start of the div) 
+        // So offsetHeight + scrollTop should be the entire length of the div content when the 
+        // scrollable content is scrolled to the bottom.
+    
+        let sum = (event.target as HTMLElement).offsetHeight + (event.target as HTMLElement).scrollTop
 
-    // scrollHeight - the entire length of the scrollable content
-    let comparison = (event.target as Element).scrollHeight
-    if(sum >= comparison) {
-        console.log("scrolled to bottom")
-        // now we load additional data
-        // TODO: Need to adjust the call for more data 
-        // Should be able to accept parameter of where to start (ie start sending the data after the most recent we have)
-        socket.value?.emit("stream_range", {"query_id": props.query.queryId})
+        // scrollHeight - the entire length of the scrollable content
+        let comparison = (event.target as Element).scrollHeight
+        if(sum >= comparison) {
+            // now we load additional data
+            // TODO: Need to adjust the call for more data 
+            // Should be able to accept parameter of where to start (ie start sending the data after the most recent we have)
+            // socket.value?.emit("stream_range", {"query_id": props.query.queryId})
+            getEarlier()
+        }
     }
 }
 
 function updateMatchList() {
     
-    console.log("Updating match_list:")
-    console.log(`props.query.queryId: ${props.query.queryId}`)
-    console.log(JSON.stringify(props.queryResultStore.asMap.get(props.query.queryId)))
-    match_list.value = 
-    Array.from(new Set((
-        props
-        .queryResultStore
-        .asMap
-        .get(props.query.queryId) as Array<CEPMatch>)
-        .values())
-        .values())
-        .sort((a: CEPMatch, b: CEPMatch) => {
-            if(a.offset < b.offset) {
-                return -1
-            } else if(a.offset === b.offset) {
-                return 0
-            } else {
-                return 1
-            }
-        })
-        .reverse()
-    let visible_offsets = match_list.value.map((match) => match.offset)
-    console.log(`Visible offsets: ${visible_offsets.length}`)
-    min_offset.value = Math.min.apply(null, visible_offsets);
-    max_offset.value = Math.max.apply(null, visible_offsets);
-    console.log(`Min offset: ${min_offset}, max offset: ${max_offset}`)
-    console.log(`queryResultStore: ${props.queryResultStore.asMap.get(props.query.queryId)?.length}`)
+    let visible_offsets = props.query.results.map((match) => match.offset)
+    if(visible_offsets.length > 0) {
+        min_visible.value = Math.min.apply(null, visible_offsets);
+        max_visible.value = Math.max.apply(null, visible_offsets);
+    } else {
+        min_visible.value = 0
+        max_visible.value = 0
+    }
+    
 }
 
 </script>
@@ -210,16 +233,18 @@ function updateMatchList() {
             <font-awesome-icon icon="trash" />
         </button>
     </div>
+    
     <!-- TODO: Add display to show live updating panel of query metrics -->
     <!-- TODO: Add display to show live updating panel of query matches -->
     <button @click="readStream()" class="btn btn-info">Get Recent Events</button>
-    <p>Showing from {{min_offset}} to {{max_offset}} </p>
+    <p>Showing from {{min_visible}} to {{max_visible}} </p>
     <div class="my-2 match-list" @scroll="onScroll">
-        <p v-for="match in match_list" class="match-item">
+        <p v-for="match in props.query.results" class="match-item">
             something
             {{match}}
         </p>
     </div>
+    <AlertBanner v-if="error_msg" :msg="error_msg" alert_type="danger" ></AlertBanner>
 </template>
 
 <style>

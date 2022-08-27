@@ -1,15 +1,11 @@
 <script setup lang="ts">
 
-import type {Query, QueryStoreT} from '../stores/query'
+import type {QueryI, QueryStoreT} from '../stores/query'
 import QueryListItem from './QueryListItem.vue'
-import type { ActiveQueryStoreT } from '../stores/activeQuery';
-import type {QueryResultStoreT} from '../stores/queryResult'
 import {ref, type Ref} from 'vue'
 
 interface Props {
-    queryStore: QueryStoreT,
-    activeQueryStore: ActiveQueryStoreT
-    queryResultStore: QueryResultStoreT
+    queryStore: QueryStoreT
 }
 
 const props = defineProps<Props>()
@@ -20,18 +16,21 @@ function deleteItem(queryId: number) {
     props.queryStore.deleteQuery(queryId)
 }
 
-let activeQueryId = ref(props.activeQueryStore.current)
-let activeQuery: Ref<Query | null> = ref(null)
+
 function setActive(qid: number) {
-    activeQueryId.value = qid
-    activeQuery.value = props.queryStore.queriesAsMap.get(qid) as Query
-    props.activeQueryStore.set(qid)
+    props.queryStore.setActive(qid)
+}
+
+function activeQueryId(): number | undefined {
+  return props.queryStore.active?.queryId
+}
+
+function activeQuery(): QueryI | undefined {
+  return props.queryStore.active
 }
 
 let listHidden = ref(true)
-if(props.activeQueryStore.current != null) {
-    setActive(props.activeQueryStore.current)
-}
+
 </script>
 <template>
   <!-- <div class="row">
@@ -97,7 +96,7 @@ if(props.activeQueryStore.current != null) {
             <li v-for="query in props.queryStore.queriesAsList" class="nav-item">
               <p
                 @click="setActive(query.queryId)"
-                v-bind:class="{ active: activeQueryId == query.queryId }"
+                v-bind:class="{ active: activeQueryId() == query.queryId }"
                 :qid="query.queryId"
                 class="nav-link text-dark"
                 aria-current="page"
@@ -111,8 +110,13 @@ if(props.activeQueryStore.current != null) {
       </div>
     </nav>
     <div class="col-md-10">
-      <QueryListItem v-if="activeQuery != null" :query="activeQuery" :query-result-store="props.queryResultStore"></QueryListItem>
-      <h2 v-if="activeQuery == null">Select a query from the dropdown</h2>
+      <div v-for="query in props.queryStore.queriesAsList">
+        <QueryListItem
+          v-if="props.queryStore.active?.queryId === query.queryId"
+          :query="query"
+        ></QueryListItem>
+      </div>
+      <h2 v-if="props.queryStore.active === undefined">Select a query from the dropdown</h2>
 
       <!-- <h2 v-if="activeQuery === null || activeQuery === undefined">Select a query from the dropdown</h2>
             <div v-for="query in props.queryStore.queriesAsList">

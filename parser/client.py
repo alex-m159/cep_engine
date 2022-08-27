@@ -7,7 +7,7 @@ import os
 from threading import Thread
 
 from requests import post, get
-from kafka import KafkaConsumer, TopicPartition, KafkaProducer
+from kafka import KafkaConsumer, TopicPartition, KafkaProducer, errors
 from collections import defaultdict
 import time
 from logging import Logger
@@ -274,32 +274,46 @@ def send_data(query_id, cons: KafkaConsumer = None):
             socketio.emit("cep_match", {'data': data_list}, room=ws_room)
         time.sleep(4)
 
+def update_offsets(query_id, cons: KafkaConsumer, emit_fn):
+    topic = f"output-{query_id}"
+    while True:
+        end_offset = get_end_offset(cons, topic)
+        begin_offset = get_beginning_offset(cons, topic)
+        emit_fn("offset_range", [begin_offset, end_offset])
+        time.sleep(4)
+
 def room_name(query_id) -> str:
     return f"query-{query_id}"
 
-@socketio.on("history")
-def query_history(event):
-    logger.info("Received history message from client")
-    consumer = KafkaConsumer(group_id=f'consumer-{time.time()}')
-    relative_seek(consumer, "output", back=50)
-    room = room_name(event['query_id'])
-    join_room(room)
-    if room not in emit_threads:
-        t = Thread(target=send_data, args=(event['query_id'], consumer))
-        emit_threads[room] = t
-        emit_threads[room].start()
+# @socketio.on("history")
+# def query_history(event):
+#     logger.info("Received history message from client")
+#     consumer = KafkaConsumer(group_id=f'consumer-{time.time()}')
+#     relative_seek(consumer, "output", back=50)
+#     room = room_name(event['query_id'])
+#     join_room(room)
+#     if room not in emit_threads:
+#         t = Thread(target=send_data, args=(event['query_id'], consumer))
+#         emit_threads[room] = t
+#         emit_threads[room].start()
 
 @socketio.on("stream_range")
 def check_stream(event):
-    logger.info("====== Received stream_range from client ========")
-    consumer = KafkaConsumer(group_id=f'consumer-{time.time()}', value_deserializer=lambda msg: json.loads(msg))
-    topic = f"output-{event['query_id']}"
-    topic_part = TopicPartition(topic, 0)
-    consumer.assign([topic_part])
-    offset_range = get_beginning_and_end(consumer, topic)
-    print(f"Offset range: {offset_range}")
-    emit("offset_range", [offset_range[0], offset_range[1]])
-    consumer.close()
+    try:
+        logger.info("====== Received stream_range from client ========")
+        consumer = KafkaConsumer(group_id=f'consumer-{time.time()}', value_deserializer=lambda msg: json.loads(msg))
+        topic = f"output-{event['query_id']}"
+        topic_part = TopicPartition(topic, 0)
+        consumer.assign([topic_part])
+        offset_range = get_beginning_and_end(consumer, topic)
+        print(f"Offset range: {offset_range}")
+        emit("offset_range", [offset_range[0], offset_range[1]])
+        t = Thread(target=update_offsets, name=f"thread-{event['query_id']}", args=(event["query_id"], consumer, emit))
+        t.run()
+        emit_threads[f"offsets-{event['query_id']}"] = t
+    except errors.NoBrokersAvailable:
+        logger.error(f"No brokers available. Using localhost:9092 as broker address.")
+        emit("error", "No brokers available.")
 
 @socketio.on('read_stream')
 def read_stream(event):
@@ -308,7 +322,7 @@ def read_stream(event):
     topic = f"output-{event['query_id']}"
     topic_part = TopicPartition(topic, 0)
     consumer.assign([topic_part])
-    for m in get_message_subset(consumer, topic, event["earliest"], event["latest"]):
+    for m in sorted(get_message_subset(consumer, topic, event["earliest"], event["latest"]), key=lambda m: int(m["offset"])):
         emit("cep_match", m)
     consumer.close()
 

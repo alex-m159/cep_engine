@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {onMounted, onUnmounted, ref, type Ref} from 'vue'
-import type {QueryStoreT, Query} from '../stores/query'
+import {type QueryStoreT, Query, type QueryI} from '../stores/query'
 import {backendIp} from '../config' 
 
 let query = ref('')
@@ -26,10 +26,11 @@ function submitQuery() {
     .then((data) => {
         console.log("Query Submission Response:")
         console.log(JSON.stringify(data))
-        let queryToAdd: Query = {
-            queryId: data["query_id"],
-            query: query.value
-        }
+        // let queryToAdd: Query = {
+        //     queryId: data["query_id"],
+        //     query: query.value
+        // }
+        let queryToAdd = new Query(Number(data["query_id"]), query.value)
         if(data['ok'] === 1) {
             props.queryStore.upsertQuery(queryToAdd)
             query.value = ""

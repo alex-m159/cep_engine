@@ -3,37 +3,24 @@
 import QueryListItem from '@/components/QueryListItem.vue'
 import QueryEditor from '@/components/QueryEditor.vue';
 import {onMounted, onUnmounted, ref, type Ref} from 'vue'
-import type {Query, QueryStoreT} from "../stores/query"
-import type {ActiveQueryStoreT} from '../stores/activeQuery'
+import {Query, type QueryI, type QueryStoreT} from "../stores/query"
 import {pinia} from "../stores/query"
 import QueryStore from '../stores/query'
-import ActiveQueryStore from '../stores/activeQuery'
 import QueryListCenterList from '../components/QueryListCenterList.vue'
 import QueryVerticalSideList from '../components/QueryVerticalSideList.vue'
 import {backendIp} from '../config'
-import type { QueryResultStoreT } from '@/stores/queryResult';
-import { QueryResultStore } from '@/stores/queryResult';
+
 
 interface Props {
   queryStore: QueryStoreT
-  activeQueryStore: ActiveQueryStoreT
-  queryResultStore: QueryResultStoreT
 }
 
 const props = defineProps<Props>()
 
 
-// console.log("Props")
-// console.log(props.queryStore)
-// let allQueries: Ref<Query[]> = ref(Array.from(props.queryStore.queries.values()))
 
 let someVal = ref("something")
 let count = 0
-
-// function queriesFromStore(): Query[] {
-//     return Array.from(props.queryStore.queries.values())
-// }
-
 
 
 onMounted(() => {
@@ -47,7 +34,7 @@ onMounted(() => {
         return r.json()
     })
     .then((data) => {
-        let newData: Query[] = data.queries.map((item: any) => {return {queryId: item.query_id, query: item.query_string}})
+        let newData: QueryI[] = data.queries.map((item: any) => new Query(item.query_id, item.query_string) )
 
         newData.forEach((q) => {
             props.queryStore.upsertQuery(q)
@@ -88,8 +75,6 @@ let showingEditor = ref(false)
     <!-- <QueryListCenterList :query-store="queryStore"></QueryListCenterList> -->
     <QueryVerticalSideList
       :query-store="props.queryStore"
-      :active-query-store="props.activeQueryStore"
-      :query-result-store="props.queryResultStore"
     ></QueryVerticalSideList>
   </main>
 </template>
