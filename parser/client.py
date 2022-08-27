@@ -92,9 +92,14 @@ def root():
 def query_create():
     return render_template('main.html')
 
+class NoPartitions(Exception):
+    pass
+
 def get_partitions(consumer: KafkaConsumer, topic) -> List[TopicPartition]:
     # import pdb;pdb.set_trace()
     part_ids = consumer.partitions_for_topic(topic)
+    if part_ids is None:
+        raise NoPartitions()
     assert len(part_ids) > 0
     if part_ids:
         return [TopicPartition(topic, part_id) for part_id in part_ids]
@@ -314,17 +319,23 @@ def check_stream(event):
     except errors.NoBrokersAvailable:
         logger.error(f"No brokers available. Using localhost:9092 as broker address.")
         emit("error", "No brokers available.")
+    except NoPartitions:
+        emit("error", "No output from query.")
 
 @socketio.on('read_stream')
 def read_stream(event):
-    print("=== Received read_stream from client === ")
-    consumer = KafkaConsumer(group_id=f'consumer-{time.time()}', value_deserializer=lambda msg: json.loads(msg))
-    topic = f"output-{event['query_id']}"
-    topic_part = TopicPartition(topic, 0)
-    consumer.assign([topic_part])
-    for m in sorted(get_message_subset(consumer, topic, event["earliest"], event["latest"]), key=lambda m: int(m["offset"])):
-        emit("cep_match", m)
-    consumer.close()
+    try:
+        print("=== Received read_stream from client === ")
+        consumer = KafkaConsumer(group_id=f'consumer-{time.time()}', value_deserializer=lambda msg: json.loads(msg))
+        topic = f"output-{event['query_id']}"
+        topic_part = TopicPartition(topic, 0)
+        consumer.assign([topic_part])
+        for m in sorted(get_message_subset(consumer, topic, event["earliest"], event["latest"]), key=lambda m: int(m["offset"])):
+            emit("cep_match", m)
+        consumer.close()
+    except NoPartitions:
+        emit("error", "No output from query.")
+
 
 @app.route('/query/<qid>', methods=['GET'])
 def show_query(qid):

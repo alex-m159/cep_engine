@@ -33,6 +33,29 @@ libraryDependencies += "com.fasterxml.jackson.module" %% "jackson-module-scala" 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.3" % "test"
 libraryDependencies += "com.sparkjava" % "spark-core" % "2.9.3"
 
+
+ThisBuild / assemblyMergeStrategy := {
+    case x if Assembly.isConfigFile(x) =>
+      MergeStrategy.concat
+    case PathList(ps @ _*) if Assembly.isReadme(ps.last) || Assembly.isLicenseFile(ps.last) =>
+      MergeStrategy.rename
+    case PathList("META-INF", xs @ _*) =>
+      (xs map {_.toLowerCase}) match {
+        case ("manifest.mf" :: Nil) | ("index.list" :: Nil) | ("dependencies" :: Nil) =>
+          MergeStrategy.discard
+        case ps @ (x :: xs) if ps.last.endsWith(".sf") || ps.last.endsWith(".dsa") =>
+          MergeStrategy.discard
+        case "plexus" :: xs =>
+          MergeStrategy.discard
+        case "services" :: xs =>
+          MergeStrategy.filterDistinctLines
+        case ("spring.schemas" :: Nil) | ("spring.handlers" :: Nil) =>
+          MergeStrategy.filterDistinctLines
+        case _ => MergeStrategy.first
+      }
+    case _ => MergeStrategy.first
+  }
+
 // Note, it's not required for you to define these three settings. These are
 // mostly only necessary if you intend to publish your library's binaries on a
 // place like Sonatype or Bintray.

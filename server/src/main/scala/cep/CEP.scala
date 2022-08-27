@@ -219,7 +219,7 @@ class KafkaSource(topics: Seq[String], query_id: Int, assign_and_seek: Map[Topic
 
   override def fetch(): Seq[Record] = {
 
-    val recs = c.poll(java.time.Duration.ofSeconds(5).toMillis)
+    val recs = c.poll(java.time.Duration.ofSeconds(3).toMillis)
     val m_records = mutable.ListBuffer[ConsumerRecord[String, String]]()
     val iter = recs.iterator()
     while(iter.hasNext){

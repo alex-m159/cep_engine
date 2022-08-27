@@ -37,7 +37,7 @@ class RecordGenerator(query_id: Int) extends Thread {
     println("Running test data generation thread")
     println("Sleeping for 10 seconds...")
     Thread.sleep(10000)
-    println("Ok, getting started with data generation!")
+    
     val data = List(
       ExternalRecord("A", Vector(UnboundRecordField("field1", 100),  UnboundRecordField("field2", 2),   UnboundRecordField("field3", 3))),
       ExternalRecord("C", Vector(UnboundRecordField("field1", 1),    UnboundRecordField("field2", 2),   UnboundRecordField("field3", 3))),
@@ -70,13 +70,18 @@ class RecordGenerator(query_id: Int) extends Thread {
     props.put("auto.commit.interval.ms", "1000")
     props.put("session.timeout.ms", "30000")
     val p = new KafkaProducer[String, String](props)
+    println("Ok, getting started with data generation!")
     for(rec <- data) {
       val pr = new ProducerRecord[String, String](s"query_input_${query_id}", rec.asJson.noSpaces)
+      println("Created new ProducerRecord")
       p.send(pr)
-      p.flush()
+      println("Send the Record")
+      
+      // println("Flushed the producer")
       println("sent test data")
       Thread.sleep(400)
     }
+    p.flush()
     println("done.")
     println("exiting thread.")
 
@@ -134,7 +139,9 @@ class QueryThread(query: CEPQuery, query_id: Int, pm: Option[PersistenceManager]
       val root_op = toAST(query)
       val initialied_op = root_op(query_id, perma)
       println(s"Query Plan:\n\t${initialied_op}")
-      for( m <- execute(initialied_op) ) {
+      val chan = execute(initialied_op)
+      while( true ) {
+        val m = chan.read
         println("sent match to sink")
         sink.send(m.asJson.noSpaces)
       }
@@ -206,7 +213,9 @@ object Main extends App {
             val root_operator = toAST(query)(0, pm)
             try {
               ActiveQueries.add_query(query)
-              for( r <- execute(root_operator) ) {
+              val chan = execute(root_operator)
+              while(true) {
+                val r = chan.read
                 println(s"[QUERY MATCH]: ${r}")
                 out.write(r.asJson.noSpaces.toCharArray.map(_.toByte).appended('\u0000'.toByte))
               }
@@ -251,6 +260,7 @@ object Main extends App {
     queries.foreach { saved =>
       ActiveQueries.add_query(saved.query_plan) match {
         case Some(query_id) =>
+          println(s"Restoring - ${query_id}")
           val thread = new QueryThread(saved.query_plan, saved.query_id)
           thread.setDaemon(true)
           thread.setName(s"query-${query_id}")

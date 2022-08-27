@@ -72,6 +72,7 @@ onMounted(() => {
 
     socket.value.on("error", (error: string) => {
         error_msg.value = error
+        logger.debug(`Setting error message: ${error}`)
     })
 
     socket.value?.emit("stream_range", {"query_id": props.query.queryId})
@@ -213,6 +214,10 @@ function updateMatchList() {
     
 }
 
+function clearError() {
+    error_msg.value = ""
+}
+
 </script>
 
 <template>
@@ -244,7 +249,7 @@ function updateMatchList() {
             {{match}}
         </p>
     </div>
-    <AlertBanner v-if="error_msg" :msg="error_msg" alert_type="danger" ></AlertBanner>
+    <AlertBanner v-if="error_msg" :msg="error_msg" alert_type="danger" :close_fn="clearError"></AlertBanner>
 </template>
 
 <style>

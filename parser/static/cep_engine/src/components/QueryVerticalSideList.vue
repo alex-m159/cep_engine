@@ -114,6 +114,7 @@ let listHidden = ref(true)
         <QueryListItem
           v-if="props.queryStore.active?.queryId === query.queryId"
           :query="query"
+          @delete="props.queryStore.deleteQuery(query.queryId)"
         ></QueryListItem>
       </div>
       <h2 v-if="props.queryStore.active === undefined">Select a query from the dropdown</h2>

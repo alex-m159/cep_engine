@@ -10,6 +10,7 @@ import org.apache.kafka.common.TopicPartition
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
+import scala.concurrent.Channel
 import io.circe.parser._
 import io.circe._
 import io.circe.generic.auto._
@@ -626,7 +627,7 @@ package object core {
 
     private var cached: Option[StoredQuery] = None
 
-    override def load(): Option[StoredQuery] = {
+    override lazy val load: Option[StoredQuery] = {
       cached match {
         case Some(value) => Some(value)
         case None => {
@@ -634,7 +635,7 @@ package object core {
           if (file_exists) {
             val file = Source.fromFile(filePath)
             val contents = file.mkString
-            println(s"Restored state for Query ID ${query_id} from ${filePath}")
+            println(s"Restored state for Query ID ${query_id} from ${filePath} - ${ Thread.currentThread().getName() }")
             decode[StoredQuery](contents) match {
               case Right(storedQuery: StoredQuery) =>
                 Some(storedQuery)
@@ -650,16 +651,16 @@ package object core {
     }
 
     override def loadEventStoreState(): Option[(ListBuffer[Record], mutable.Map[String, (Int, ListBuffer[StackItem])])] =
-      load().map(_.event_state)
+      load.map(_.event_state)
 
     override def loadQuery(): Option[CEPQuery] =
-      load().map(_.query_plan)
+      load.map(_.query_plan)
 
     override def loadOffsets(): Option[Map[TopicPartition, Long]] =
-      load().map(_.kafka_offsets.map { case (k, v) => (new TopicPartition(k, 0), v) } )
+      load.map(_.kafka_offsets.map { case (k, v) => (new TopicPartition(k, 0), v) } )
 
     override def loadQueryId(): Option[Int] =
-      load().map(_.query_id)
+      load.map(_.query_id)
 
     override def store(
       state: (ListBuffer[Record], mutable.Map[String, (Int, ListBuffer[StackItem])]),
@@ -792,25 +793,25 @@ package object core {
     }
   }
 
-  def execute(o: RootOperator): LazyList[EventRecord] = {
-//    val ll = LazyList.empty
-//
-//
-//
-//    new Thread {
-//      override def run(): Unit = {
-//        while(true) {
-//          val recs = o.process()
-//          for( r <- recs ){
-//            println("[execute] records appended to stream/lazylist")
-//            ll.appended(r)
-//          }
-//        }
-//      }
-//    }.run()
-//
-//    ll
-    LazyList.continually(o.process().map(_._1)).flatten
+  def execute(o: RootOperator): Channel[EventRecord] = {
+   val chan = new Channel[EventRecord]()
+
+
+
+
+   new Thread {
+     override def run(): Unit = {
+       while(true) {
+         val recs: Vector[(EventRecord, Vector[Record])] = o.process()
+         for( r <- recs ){
+           println("[execute] records appended to channel")
+           chan.write(r._1)
+         }
+       }
+     }
+   }.start()
+
+   chan
   }
 
 
