@@ -49,6 +49,9 @@ let formattedQuery = ref("")
 let error_msg: Ref<string | undefined> = ref("")
 let earliest = ref(0)
 let latest = ref(0)
+let show_fields = ref(false)
+let show_timestamps = ref(true)
+let show_query = ref(true)
 
 onMounted(() => {
     logger.debug("Query view panel mounted")
@@ -218,6 +221,19 @@ function clearError() {
     error_msg.value = ""
 }
 
+function dateTimeFormat(epoch: number): string {
+    let d = new Date(epoch * 1000)
+    let month = d.getMonth()
+    let date = d.getDate()
+    let year = d.getFullYear()
+    let hour = d.getHours()
+    let minute = d.getMinutes()
+    let now = new Date()
+    // @ts-ignore
+    let formatter = new Intl.DateTimeFormat("en-US", {dateStyle: "medium", timeStyle: "medium"})
+    return formatter.format(d)
+}
+
 </script>
 
 <template>
@@ -226,28 +242,43 @@ function clearError() {
             Query ID: {{ props.query.queryId }}            
         </div>
         <br>
-        <p>Submitted Query:</p>
-        <div class="border border-primary p-3 text-dark">
-            <p class="m-0 p-0" v-for="line in props.query.query.split('\n')">
-                {{line}}
-            </p>
+        <div v-if="show_query" class="my-2">
+            <p>Submitted Query:</p>
+            <div class="border border-primary p-3 text-dark">
+                <p class="m-0 p-0" v-for="line in props.query.query.split('\n')">
+                    {{line}}
+                </p>
+            </div>
+            <br>
+            <button @click="deleteQuery()" class="btn btn-danger">
+                Delete Query
+                <font-awesome-icon icon="trash" />
+            </button>
         </div>
-        <br>
-        <button @click="deleteQuery()" class="btn btn-danger">
-            Delete Query
-            <font-awesome-icon icon="trash" />
-        </button>
     </div>
     
     <!-- TODO: Add display to show live updating panel of query metrics -->
     <!-- TODO: Add display to show live updating panel of query matches -->
     <button @click="readStream()" class="btn btn-info">Get Recent Events</button>
+    <button @click="show_fields = !show_fields" class="mx-2 btn btn-secondary">Toggle Field Names</button>
+    <button @click="show_timestamps = !show_timestamps" class="mx-2 btn btn-secondary">Toggle Timestamps</button>
+    <button @click="show_query = !show_query" class="mx-2 btn btn-secondary">Toggle Query Display</button>
+    <div>
+        <label>WHERE filter:</label>
+        <input class="m-2 form form-control" type="text" placeholder="a.field1 < 1000 AND ...">
+    </div>
     <p>Showing from {{min_visible}} to {{max_visible}} </p>
     <div class="my-2 match-list" @scroll="onScroll">
-        <p v-for="match in props.query.results" class="match-item">
-            something
-            {{match}}
-        </p>
+        <div v-for="match in props.query.results" class="match-item">
+            <span class="px-2">{{match["offset"]}}</span>
+            <span v-if="show_timestamps" class="px-2">{{dateTimeFormat(match["match"]["Composite"]["timestamp"])}}</span>
+            <!-- <span class="px-2">{{match["match"]["Composite"]["events"]}}</span> -->
+            <span class="px-2"> 
+                <span class="px-2" v-for="event in match.match.Composite.events">
+                {{event.event_type}} {{event.bind_name}} ( <span class="" v-for="(field, index) in event.fields"> <span class="text-primary fw-light" v-if="show_fields"> {{ field.field_name + ": "}}</span> <span class=""> {{index !== event.fields.length-1 ? field.field_value + ", " : field.field_value }} </span> </span> )  
+                </span>
+            </span>
+        </div>
     </div>
     <AlertBanner v-if="error_msg" :msg="error_msg" alert_type="danger" :close_fn="clearError"></AlertBanner>
 </template>
