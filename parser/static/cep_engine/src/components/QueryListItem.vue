@@ -310,7 +310,7 @@ function dateTimeFormat(epoch: number): string {
     
     <div>
         <label>Submit Event:</label>
-        <EventTypeInput :event_types="query_event_types"></EventTypeInput>
+        <EventTypeInput :event_types="query_event_types" :query_id="props.query.queryId"></EventTypeInput>
     </div>
 
 

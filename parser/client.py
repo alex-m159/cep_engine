@@ -425,9 +425,13 @@ def query_send_events():
     qid = int(request.json['query_id'])
     for e in request.json['events']:
         event_type, event_fields = tuple(e)
-        event_fields = [ {'field_name': field['field_name'], 'field_value': int(field['field_value'])} for field in event_fields ]
-        print("About to send events")
-        send_event(qid, (event_type, event_fields))
+        mod_event_fields = [ 
+            {
+                'field_name': field['field_name'], 
+                'field_value': int(field['field_value'])
+            } for field in event_fields 
+        ]
+        send_event(qid, (event_type, mod_event_fields))
     return jsonify({'ok': 1})
 
 @socketio.on('connect')
