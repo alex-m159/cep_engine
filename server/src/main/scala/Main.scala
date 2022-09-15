@@ -20,7 +20,7 @@ import io.circe.parser._
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.syntax._
-
+import cep.core.JacksonWrapper._
 
 class Timer() {
   @noinline
@@ -153,6 +153,8 @@ class QueryThread(query: CEPQuery, query_id: Int, pm: Option[PersistenceManager]
 }
 
 import spark.Spark.{get, post, port, delete}
+import spark.Route
+import spark.{Request, Response}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 
 object Main extends App {
@@ -277,12 +279,17 @@ object Main extends App {
 
   println("Launching client server...")
   port(8000)
-  get("/query", (req, res) => {
+  get("/query", (req: Request, res: Response) => {
     println(req.userAgent())
     Map( "queries" -> ActiveQueries.running_queries.toMap).asJson.noSpaces
   })
 
-  post("/query", (req, res) => {
+  get("/query/ast", (req: Request, res: Response) => {
+    val query_id = req.queryParams("query_id").toInt
+    Map("event_types" -> serialize(ActiveQueries.running_queries(query_id).event_types) ).asJson.noSpaces
+  })
+
+  post("/query", (req: Request, res: Response) => {
     try {
       val query_json = req.body()
       createQuery(query_json) match {
@@ -316,6 +323,7 @@ object Main extends App {
     }
   })
 
+
   post("/query/plan", (req, res) => {
     val query_json = req.body()
     cep.core.query.fromJson(query_json) match {
@@ -325,7 +333,8 @@ object Main extends App {
         val query_id = ActiveQueries.get_query_id(query)
         val perma = new FilePM(query, query_id)
         val uninitialized_plan = toAST(query)
-        Map[String, String]("ok" -> true.toString, "plan" -> uninitialized_plan(query_id, perma).toString).asJson.noSpaces
+
+        Map[String, String]("ok" -> true.toString, "plan" -> serialize(uninitialized_plan(query_id, perma))).asJson.noSpaces
     }
   })
 

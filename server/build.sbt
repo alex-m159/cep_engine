@@ -32,6 +32,7 @@ libraryDependencies += "org.apache.kafka" % "kafka-clients" % "2.6.0"
 libraryDependencies += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.3"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.3" % "test"
 libraryDependencies += "com.sparkjava" % "spark-core" % "2.9.3"
+libraryDependencies += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.1.3"
 
 
 ThisBuild / assemblyMergeStrategy := {

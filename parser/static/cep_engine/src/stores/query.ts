@@ -13,6 +13,11 @@ export interface CEPMatch {
     timestamp: number
 }
 
+export interface EventTypes {
+    event_name: string
+    event_fields: string[]
+}
+
 export interface QueryI {
     queryId: number
     query: string

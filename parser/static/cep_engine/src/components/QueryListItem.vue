@@ -2,7 +2,7 @@
 
 import {ref, onMounted, onUnmounted} from 'vue'
 import type {Ref} from 'vue'
-import type {QueryI, CEPMatch} from '../stores/query'
+import type {QueryI, CEPMatch, EventTypes} from '../stores/query'
 // import {queryResultStore} from '../stores/queryResult'
 import {backendIp} from '../config'
 import { io, Socket} from "socket.io-client"
@@ -10,6 +10,7 @@ import type { DefaultEventsMap, EventNames, EventParams, EventsMap, Emitter } fr
 import { logger } from "../utils/logging"
 import AlertBanner from "./AlertBanner.vue"
 import { propsToAttrMap } from '@vue/shared'
+import EventTypeInput from './EventTypeInput.vue'
 
 interface Props {
     query: QueryI
@@ -52,6 +53,9 @@ let latest = ref(0)
 let show_fields = ref(false)
 let show_timestamps = ref(true)
 let show_query = ref(true)
+let query_event_types = ref([] as EventTypes[])
+let event_inputs = ref(new Map<string, Object>())
+const event_input_forms = ref([] as string[])
 
 onMounted(() => {
     logger.debug("Query view panel mounted")
@@ -70,7 +74,7 @@ onMounted(() => {
     socket.value.on("offset_range", (range: [number, number]) => {
         earliest.value = range[0]
         latest.value = range[1]
-        logger.info(`Updated earliest and latest offsets: [${range[0]}, ${range[1]}]`)
+        // logger.info(`Updated earliest and latest offsets: [${range[0]}, ${range[1]}]`)
     })
 
     socket.value.on("error", (error: string) => {
@@ -80,6 +84,7 @@ onMounted(() => {
 
     socket.value?.emit("stream_range", {"query_id": props.query.queryId})
     updateMatchList()
+    getPlan()
 })
 
 onUnmounted(() => {
@@ -118,6 +123,40 @@ function deleteQuery() {
         logger.error(err)
         alert("Error occurred while attempting to delete query")
     }) 
+}
+
+function handleAST(ast: any) {
+    let event_types = ast.event_types
+    let parsed_ets = []
+    for(var i = 0; i < event_types.length; i++) {
+        let name = event_types[i].name
+        let fields = event_types[i].fields
+        let et: EventTypes = {
+            event_name: name,
+            event_fields: fields
+        }
+        parsed_ets.push(et)
+    }
+    console.log(parsed_ets)
+    query_event_types.value = parsed_ets
+} 
+
+function getPlan() {
+    let options = {
+        method: 'POST',
+        headers: new Headers(),
+        body: JSON.stringify({
+            query_id: props.query.queryId
+        })
+    }
+    console.log(props.query.queryId)
+    options.headers.set('Content-Type', 'application/json')
+    fetch(`http://${backendIp}/query/ast`, options)
+    // .then((res) => res.json())
+    .then((res) => res.json() )
+    .then((data) => {
+        handleAST(data["ast"])
+    })
 }
 
 function readStream() {
@@ -263,10 +302,18 @@ function dateTimeFormat(epoch: number): string {
     <button @click="show_fields = !show_fields" class="mx-2 btn btn-secondary">Toggle Field Names</button>
     <button @click="show_timestamps = !show_timestamps" class="mx-2 btn btn-secondary">Toggle Timestamps</button>
     <button @click="show_query = !show_query" class="mx-2 btn btn-secondary">Toggle Query Display</button>
+    <!-- <button @click="getPlan()" class="mx-2 btn btn-secondary">Print Plan</button> -->
     <div>
         <label>WHERE filter:</label>
         <input class="m-2 form form-control" type="text" placeholder="a.field1 < 1000 AND ...">
     </div>
+    
+    <div>
+        <label>Submit Event:</label>
+        <EventTypeInput :event_types="query_event_types"></EventTypeInput>
+    </div>
+
+
     <p>Showing from {{min_visible}} to {{max_visible}} </p>
     <div class="my-2 match-list" @scroll="onScroll">
         <div v-for="match in props.query.results" class="match-item">
@@ -295,6 +342,11 @@ p {
 
 .match-item:hover {
     background-color: rgb(217, 252, 252);
+}
+
+.event-type-inputs {
+    width: 10%;
+    display: inline;
 }
 
 </style>

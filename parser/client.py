@@ -398,8 +398,10 @@ def query_ast():
     elif 'query_id' in request.json:
         qid = request.json['query_id']
         queries = get_all_queries()
-        if qid in queries:
-            ast = queries[qid]
+        print(str(qid))
+        print(queries[str(qid)])
+        if str(qid) in queries:
+            ast = queries[str(qid)]
             return jsonify({'ok': 1, 'ast': ast})
         else:
             return jsonify({'ok': 0, 'err': "Query ID does not exist or is not associated with active query"})
@@ -455,7 +457,6 @@ def condense_data(data):
     for tp in data.keys():
         result[tp.topic].extend(data[tp])
     return result
-
 
 
 @socketio.on("test_event")

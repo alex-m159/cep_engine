@@ -67,14 +67,14 @@ package object core {
   // Predicate constructs
   type Literal = Long
   case class PredField(event_name: String, field_name: String)
-  abstract class Operator{
+  trait Operator{
     def process(rec: EventRecord, stream: Vector[Record]): Vector[(EventRecord, Vector[Record])]
   }
-  abstract class RootOperator extends Operator {
+  trait RootOperator extends Operator {
     def process(): Vector[(EventRecord, Vector[Record])]
   }
 
-  abstract class NonRootOperator extends Operator {
+  trait NonRootOperator extends Operator {
     def process(rec: EventRecord, stream: Vector[Record]): Vector[(EventRecord, Vector[Record])]
   }
 
@@ -265,7 +265,7 @@ package object core {
       result.toVector.flatMap { case (matched_rec, stream) => child.process(matched_rec, stream)}
     }
   }
-  case object Output extends Operator {
+  case class Output() extends Operator {
     def process(rec: EventRecord, stream: Vector[Record]): Vector[(EventRecord, Vector[Record])] = {
       val result = scala.collection.mutable.ArrayBuffer[(EventRecord, Vector[Record])]()
       rec match {
@@ -746,7 +746,7 @@ package object core {
 
 
       /* TRANSFORMATION OPERATOR */
-      val transformation = Transformation(Output)
+      val transformation = Transformation(Output())
 
       var root: Operator = transformation
 
@@ -786,9 +786,11 @@ package object core {
 
       /* SEQUENCE SCAN AND CONSTRUCTION OPERATOR */
       val data_source = new KafkaSource(List(s"query_input_${query_id}"), query_id, perma.loadOffsets().getOrElse(Map.empty))
+      println("Created data source")
       val event_store = new EventStore(event_subseq, perma)
+      println("Created event store")
       val ssc = SSC(event_defs, event_subseq, data_source, event_store, root)
-
+      println("Created SSC")
       ssc
     }
   }
@@ -895,5 +897,113 @@ package object core {
   }
 
 
+//  object CirciFuncs {
+//    import io.circe.parser.decode
+//    import io.circe.parser._
+//    import io.circe._
+//    import io.circe.generic.auto._
+//    import io.circe.syntax._
+//
+//    //    event_types: Set[EventTypeDef], subseq: SequenceDef, source: DataSource, es: EventStore, child: Operator
+//    implicit val encodeSSC: Encoder[SSC] = Encoder.forProduct5("event_types", "subseq", "source", "es", "child")(SSC.unapply(_).get)
+//
+//    implicit val decodeSSC: Decoder[SSC] = Decoder.forProduct5("event_types", "subseq", "source", "es", "child")(SSC.apply)
+//
+////    Window(unit: WithinUnits.TimeUnit, magnitude: Int, child: Operator)
+//    implicit val encodeWindow: Encoder[Window] = Encoder.forProduct3("unit", "magnitude", "child")(Window.unapply(_).get)
+//    implicit val decodeWindow: Decoder[Window] = Decoder.forProduct3("unit", "magnitude", "child")(Window.apply)
+//
+////    Selection(exprs: List[SplitConjunction], child: Operator)
+//    implicit val encodeSelection: Encoder[Selection] = Encoder.forProduct2("exprs", "child")(Selection.unapply(_).get)
+//    implicit val decodeSelection: Decoder[Selection] = Decoder.forProduct2("exprs", "child")(Selection.apply)
+//
+////    Negation(seq: SequenceDef, subseq: SequenceDef, neg_exprs: List[SplitConjunction], child: Operator)
+//    implicit val encodeNegation: Encoder[Negation] = Encoder.forProduct4("seq", "subseq", "neg_exprs", "child")(Negation.unapply(_).get)
+//    implicit val decodeNegation: Decoder[Negation] = Decoder.forProduct4("seq", "subseq", "neg_exprs", "child")(Negation.apply)
+//
+//    implicit val encodeTransformation: Encoder[Transformation] = Encoder.forProduct1("child")(Transformation.unapply(_).get)
+//    implicit val decodeTransformation: Decoder[Transformation] = Decoder.forProduct1("child")(Transformation.apply)
+//
+//    implicit val encodeOperator: Encoder[Operator] = Encoder.instance {
+//      case root: RootOperator =>
+//        root match {
+//          case ssc @ SSC(_, _, _, _, _) => ssc.asJson
+//        }
+//      case nonroot: NonRootOperator =>
+//        nonroot match {
+//          case concrete => concrete.asJson
+//        }
+//      case oper: Operator =>
+//        oper match {
+//          case sel @ Selection(_, _) => sel.asJson
+//          case neg @ Negation(_, _, _, _) => neg.asJson
+//          case window @ Window(_, _, _) => window.asJson
+//          case transformation @ Transformation(_) => transformation.asJson
+//          case output: Output => output.asJson
+//        }
+//    }
+//
+//    implicit val encodeRootOperator: Encoder[RootOperator] = Encoder.instance {
+//      case ssc @ SSC(_, _, _, _, _) => ssc.asJson
+//    }
+//
+//    implicit val decodeOperator: Decoder[Operator] = {
+//      val l: List[Decoder[Operator]] = List[Decoder[Operator]](
+//        Decoder[Selection],
+//        Decoder[Negation],
+//        Decoder[Window],
+//        Decoder[Transformation],
+//        Decoder[SSC],
+//      )
+//      l.reduceLeft(_ or _)
+//    }
+//
+//    implicit val decodeRootOperator: Decoder[RootOperator] = {
+//      val l: List[Decoder[RootOperator]] = List[Decoder[RootOperator]](
+//        Decoder[SSC],
+//      )
+//      l.reduceLeft(_ or _)
+//    }
+//
+//  }
+
+  import java.lang.reflect.{Type, ParameterizedType}
+  import com.fasterxml.jackson.databind.ObjectMapper
+  import com.fasterxml.jackson.module.scala.DefaultScalaModule
+  import com.fasterxml.jackson.annotation.JsonProperty;
+  import com.fasterxml.jackson.core.`type`.TypeReference;
+
+
+  object JacksonWrapper {
+    val mapper = new ObjectMapper()
+    mapper.registerModule(DefaultScalaModule)
+
+    def serialize(value: Any): String = {
+      import java.io.StringWriter
+      val writer = new StringWriter()
+      mapper.writeValue(writer, value)
+      writer.toString
+    }
+
+    def deserialize[T: Manifest](value: String): T =
+      mapper.readValue(value, typeReference[T])
+
+    private[this] def typeReference[T: Manifest] = new TypeReference[T] {
+      override def getType = typeFromManifest(manifest[T])
+    }
+
+    private[this] def typeFromManifest(m: Manifest[_]): Type = {
+      if (m.typeArguments.isEmpty) {
+        m.runtimeClass
+      }
+      else new ParameterizedType {
+        def getRawType = m.runtimeClass
+
+        def getActualTypeArguments = m.typeArguments.map(typeFromManifest).toArray
+
+        def getOwnerType = null
+      }
+    }
+  }
 
 }
