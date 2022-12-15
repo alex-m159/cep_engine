@@ -1,4 +1,5 @@
 
+<!-- 
 <p align="center">
   <a href="https://nodejs.org/">
     <img
@@ -8,8 +9,10 @@
     />
   </a>
 </p>
+-->
+<h2>Event Oven</h2>
 
-French Toast is a partial implementation of the language and query engine described in [High-Performance Complex Event Processing Over Streams](http://cs.brown.edu/courses/cs295-11/2007/complex.pdf).
+Event Oven is a partial implementation of the language and query engine described in [High-Performance Complex Event Processing Over Streams](http://cs.brown.edu/courses/cs295-11/2007/complex.pdf).
 
 The query language allows users to define a set of event types and a sequence or pattern of those events. The query engine will take the query and will start reading from the input stream; once it find a series of events that match the given pattern and pass all constraints, it will produce that as output.
 
