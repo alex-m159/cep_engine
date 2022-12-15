@@ -1,16 +1,14 @@
 
-<!-- 
+ 
 <p align="center">
-  <a href="https://nodejs.org/">
-    <img
-      alt="French Toast"
-      src="https://frenchtoastassests.us-east-1.linodeobjects.com/brandmark-design-600x0.png"
-      width="600"
-    />
-  </a>
+  <img
+    alt="Event Oven"
+    src="https://frenchtoastassests.us-east-1.linodeobjects.com/event-oven-transparent-red-text.png"
+    width="600"
+  />
 </p>
--->
-<h2>Event Oven</h2>
+
+<hr>
 
 Event Oven is a partial implementation of the language and query engine described in [High-Performance Complex Event Processing Over Streams](http://cs.brown.edu/courses/cs295-11/2007/complex.pdf).
 
