@@ -3,7 +3,7 @@
 <p align="center">
   <img
     alt="Event Oven"
-    src="https://frenchtoastassests.us-east-1.linodeobjects.com/event-oven-transparent-red-text.png"
+    src="https://frenchtoastassests.us-east-1.linodeobjects.com/event-over-transparent-bg-white-outline.png"
     width="600"
   />
 </p>
