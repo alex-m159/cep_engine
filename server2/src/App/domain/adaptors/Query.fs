@@ -2,6 +2,8 @@ namespace Domain.Adaptors
 
 open FSharp.Data
 open Domain.Core.Query
+open Domain.Ports.Parser
+open Newtonsoft.Json.Linq
 
 (* 
     TODO: In the event_seq change "negated" from being a 
@@ -106,10 +108,20 @@ module Query =
             },
             "where": {
                 "expr_root": {
-                    "op": "s_eq",
-                    "left_var": "a",
-                    "left_field": "field1",
-                    "literal": "100"
+                    "op": "and",
+                    "left": {
+                        "op": "s_eq",
+                        "left_var": "a",
+                        "left_field": "field1",
+                        "literal": "100"
+                    },
+                    "right": {
+                        "op": "p_eq",
+                        "left_var": "d",
+                        "left_field": "field1",
+                        "right_var": "a",
+                        "right_field": "field1"
+                    }
                 }
             },
             "within": {
@@ -121,87 +133,157 @@ module Query =
     """
 
     type QueryJson = JsonProvider<sample>
-
-    let jsonNodeToEventType(event_type: QueryJson.EventType) = 
-        let event_name = event_type.Name 
-        let fields_for_event = ResizeArray<Field>()
-        for field in event_type.Fields do
-            let field_name = field.Name
-            let field_type = field.Type
-            
-            let field: Field = 
-                match field_type with
-                    | "string" -> StringField(field_name)
-                    | "integer" -> IntField(field_name)
-                    | ft -> raise( System.ArgumentException($"Field Type must be string or integer, but was {ft}"))
-            fields_for_event.Add(field)
-        let et: EventType = {name = event_name; fields = List.ofSeq(fields_for_event);}
-        et
-
-    let extractName event_type =
-        (event_type.name, event_type)
-
-    let json = QueryJson.Parse(sample)
-    let run = 
-
-        
-        let arr = ResizeArray()
-        for event_type in json.EventTypes do
-            printfn $"{event_type.Name}"
-            for field in event_type.Fields do
-                printfn $"{field}"
-                arr.Add(field)
-
-        let f: Field = IntField "field1"
-        arr
+     
+    
 
     type JsonParser =
         member this.parse(jsonstring: string): Query = (this :> QueryParser).parse(jsonstring)
         
-        interface Domain.Core.Query.QueryParser with
+        static member private parseEventTypes(event_type: QueryJson.EventType) =
+            let event_name = event_type.Name 
+            let fields_for_event = ResizeArray<Field>()
+            for field in event_type.Fields do
+                let field_name = field.Name
+                let field_type = field.Type
+                
+                let field: Field = 
+                    match field_type with
+                        | "string" -> StringField(field_name)
+                        | "integer" -> IntField(field_name)
+                        | ft -> raise( System.ArgumentException($"Field Type must be string or integer, but was {ft}"))
+                fields_for_event.Add(field)
+            let et: EventType = {name = event_name; fields = List.ofSeq(fields_for_event);}
+            et
+        
+        static member private extractKV event_type =
+            (event_type.name, event_type)
+
+        static member private parseEventClause(type_map: Map<string, EventType>, event_clause: QueryJson.EventClause) = 
+            let _sub_seqs = ResizeArray<SubSeqExpr>()                
+            for param in event_clause.EventSeq do
+                let param_type_name = param.EventType
+                let param_name = param.Name
+                let param_negated = param.Negated
+                let param_order = param.Order
+                let event_param: EventParam = 
+                    {
+                        event_type = type_map.[param_type_name]
+                        param_name = param_name;
+                        order = param_order;
+                    }
+                let seq_expr = 
+                    if param_negated then
+                        Not event_param
+                    else
+                        EventParam event_param
+                _sub_seqs.Add(seq_expr)
+            let sub_seqs = List.ofSeq(_sub_seqs)
+            
+            let event_clause = 
+                if List.length(sub_seqs) = 1 then
+                    Event( SingletonSeq(List.head(sub_seqs)) )
+                else
+                    Event( Seq(sub_seqs) )
+            event_clause
+
+        static member private fieldNameFilter name field =
+            let result: bool = match field with
+                | StringField fieldname -> fieldname = name
+                | IntField fieldname -> fieldname = name
+            result
+
+        static member private stringToOp(op: string): ComparisonOp =
+            match op with
+                | "s_eq" | "p_eq" -> Eq
+                | "s_ne" | "p_ne" -> NEq
+                | "s_gt" | "p_gt" -> GT
+                | "s_gte" | "p_gte" -> GTEq
+                | "s_lt" | "p_lt" -> LT
+                | "s_lte" | "p_lte" -> LTEq
+                | _ -> raise (System.ArgumentException($"Operation ${op} is not a valid operation"))
+
+        static member private recurseWhere(param_map: Map<string, EventParam>, expr: JToken): WhereExpr =
+            match expr.SelectToken("op").Value<string>() with
+                | op when op.StartsWith("s_") -> 
+                    let param: EventParam = param_map.[expr.SelectToken("left_var").Value<string>()]
+                    let left_field: string = expr.SelectToken("left_field").Value<string>()
+                    let literal: string = expr.SelectToken("literal").Value<string>()
+                    let fields_arr = Array.ofList(param.event_type.fields)
+                    let find_pred = JsonParser.fieldNameFilter left_field
+                    let pred = match fields_arr |> Array.find(find_pred) with 
+                        | StringField(_) ->  
+                            let pred: SimplePredicate = {
+                                op = JsonParser.stringToOp(op); 
+                                left = {event_param = param; field_name = left_field;}; 
+                                right = StringConst(literal)
+                            }
+                            pred
+                        | IntField(_) ->
+                            let pred: SimplePredicate = {
+                                op = JsonParser.stringToOp(op); 
+                                left = {event_param = param; field_name = left_field;}; 
+                                right = IntConst(int(literal))
+                            }
+                            pred
+                    BaseExpr(SimplePred(pred))
+                            
+                | op when op.StartsWith("p_")  -> 
+                    let left_param: EventParam = param_map.[expr.SelectToken("left_var").Value<string>()]
+                    let left_field: string = expr.SelectToken("left_field").Value<string>()
+                    let right_param: EventParam = param_map.[expr.SelectToken("right_var").Value<string>()]
+                    let right_field: string = expr.SelectToken("right_field").Value<string>()
+                    let pred = {
+                        op = JsonParser.stringToOp(op); 
+                        left = {event_param = left_param; field_name = left_field;}; 
+                        right = {event_param = right_param; field_name = right_field;}; 
+                    }
+                    BaseExpr(ParamPred(pred))
+                | "and" -> CompoundExpr(JsonParser.recurseWhere(param_map, expr.SelectToken("left")), And, JsonParser.recurseWhere(param_map, expr.SelectToken("right")) )
+                | "or" -> CompoundExpr(JsonParser.recurseWhere(param_map, expr.SelectToken("left")), Or, JsonParser.recurseWhere(param_map, expr.SelectToken("right")) )
+
+        static member private parseWhere(param_map: Map<string, EventParam>, root: JToken): Where =
+            WhereRoot(JsonParser.recurseWhere(param_map, root))
+        
+        static member private singleton(seqexpr: SubSeqExpr): EventParam =
+            match seqexpr with
+                | EventParam(ep) -> ep
+                | Not(ep) -> ep
+
+        static member private extractEventParams( ec: EventClause): EventParam[] =
+            match ec with
+                | Event(Seq( list)) -> list |> List.ofSeq |> List.map(JsonParser.singleton) |> Array.ofList
+                | Event(SingletonSeq(single)) -> [| single |> JsonParser.singleton |]
+
+
+        static member private extractKV(param: EventParam): string * EventParam =
+            (param.param_name, param)
+
+        interface QueryParser with
             member this.parse jsonstring =
 
                 let parsed = QueryJson.Parse(sample)
 
+
                 (* Event Type Definitions *)
-                // let all_event_types = ResizeArray<EventType>()
-                // let mutable type_map = Map.empty
-                let event_types: EventType[] = parsed.EventTypes |> Array.map(jsonNodeToEventType)
-                let type_map = event_types |> Array.map(extractName) |> Map.ofArray
+                let event_types: EventType[] = parsed.EventTypes |> Array.map(JsonParser.parseEventTypes)
+                let type_map = event_types |> Array.map(JsonParser.extractKV) |> Map.ofArray
 
                 (* Event Clause *)
-                let _sub_seqs = ResizeArray<SubSeqExpr>()                
-                for param in parsed.Query.EventClause.EventSeq do
-                    let param_type_name = param.EventType
-                    let param_name = param.Name
-                    let param_negated = param.Negated
-                    let param_order = param.Order
-                    let event_param: EventParam = 
-                        {
-                            event_type = type_map.[param_type_name]
-                            param_name = param_name;
-                            order = param_order;
-                        }
-                    let seq_expr = 
-                        if param_negated then
-                            Not event_param
-                        else
-                            EventParam event_param
-                    _sub_seqs.Add(seq_expr)
-                let sub_seqs = List.ofSeq(_sub_seqs)
-                
-                let event_clause = 
-                    if List.length(sub_seqs) = 1 then
-                        Event( SingletonSeq(List.head(sub_seqs)) )
-                    else
-                        Event( Seq(sub_seqs) )
-                
+                let event_clause: EventClause = JsonParser.parseEventClause(type_map, parsed.Query.EventClause)
 
+                (* Where Clause *)
+                let j = JObject.Parse jsonstring
+                let node = j.SelectToken "query.where.expr_root"
+                
+                let param_map: Map<string, EventParam> = 
+                    JsonParser.extractEventParams event_clause |> Array.map(JsonParser.extractKV) |> Map.ofSeq
+
+                let where: Where = JsonParser.parseWhere(param_map, node)
 
                 let q: Query = {
                     event_types = event_types; 
                     event_clause = event_clause; 
-                    where = None; 
+                    where = Some where; 
                     within = None; 
                 }
                 q

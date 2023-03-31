@@ -32,7 +32,7 @@ type EventBinding =
         bound_fields: FieldBinding
     }
 
-type ComparisonOp = GT | GEq | LT | LEq | Eq | NEq
+type ComparisonOp = GT | GTEq | LT | LTEq | Eq | NEq
 
 type EventField =
     {
@@ -58,7 +58,7 @@ type ParamPredicate =
         right: EventField
     }
 
-type Predicate = SimplePredicate of SimplePredicate | ParamPredicate of ParamPredicate
+type Predicate = SimplePred of SimplePredicate | ParamPred of ParamPredicate
 
 type BooleanOps = And | Or
 
@@ -66,11 +66,7 @@ type WhereExpr =
     BaseExpr of Predicate
     | CompoundExpr of WhereExpr * BooleanOps * WhereExpr
 
-type Where = 
-    {
-        root: WhereExpr
-    }
-
+type Where = WhereRoot of WhereExpr
 (*
     p
     NOT(p)
@@ -110,30 +106,3 @@ type Query =
         within: Option<Within>
     }
 
-
-type QueryParser =
-    abstract member parse : string -> Query
-
-(*
-let somename: Query = 
-    let a = {
-        name = "A";
-        fields = [IntField("field1", 100), IntField("field2", 101), IntField("field3", 102)]
-    }
-    let b = {
-        name = "B";
-        fields = [IntField("field1", 200), IntField("field2", 201), IntField("field3", 202)]
-    }
-    let c = {
-        name = "C";
-        fields = [IntField("field1", 300), IntField("field2", 301), IntField("field3", 302)]
-    }
-
-    let q = {
-        event_types = [a, b, c];
-        event_clause =  
-    }
-*)  
-
-
-// TODO: Parse JSON in query types

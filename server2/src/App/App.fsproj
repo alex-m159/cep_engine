@@ -4,15 +4,17 @@
     <TargetFramework>net7.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    
     <Compile Include="domain/core/Operators.fs" />
     <Compile Include="domain/core/Query.fs" />
-    <!-- <Compile Include="domain/adaptors/Operators.fs" /> -->
+    <Compile Include="domain/ports/Parser.fs" />
     <Compile Include="domain/adaptors/Query.fs" />
     <Compile Include="Rest/Routes.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Data" Version="5.0.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Suave" Version="2.6.2" />
   </ItemGroup>
 </Project>

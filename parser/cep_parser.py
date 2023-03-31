@@ -619,7 +619,7 @@ type C(id: INTEGER, field1: STRING, field2: STRING)
 type D(id: INTEGER, field1: STRING, field2: STRING)
    
 EVENT SEQ(A a, !(C c),  D d)
-WHERE a.field1 = 100
+WHERE a.field1 = 100 AND d.field1 = a.field1
 WITHIN 5 HOURS
 """    
 

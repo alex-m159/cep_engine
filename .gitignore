@@ -10,3 +10,4 @@ server/project/project
 server2/src/App/bin/
 server2/src/App/obj/
 interpreter/
+.fake
