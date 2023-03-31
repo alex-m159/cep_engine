@@ -276,6 +276,17 @@ function dateTimeFormat(epoch: number): string {
 </script>
 
 <template>
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="#">Query Plan</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link">Event Matches</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#">Metrics</a>
+        </li>
+    </ul>
     <div>
         <div class="border border-primary p-2">
             Query ID: {{ props.query.queryId }}            
@@ -302,14 +313,14 @@ function dateTimeFormat(epoch: number): string {
     <button @click="show_fields = !show_fields" class="mx-2 btn btn-secondary">Toggle Field Names</button>
     <button @click="show_timestamps = !show_timestamps" class="mx-2 btn btn-secondary">Toggle Timestamps</button>
     <button @click="show_query = !show_query" class="mx-2 btn btn-secondary">Toggle Query Display</button>
-    <!-- <button @click="getPlan()" class="mx-2 btn btn-secondary">Print Plan</button> -->
+    <button @click="getPlan()" class="mx-2 btn btn-secondary">Print Plan</button>
     <div>
         <label>WHERE filter:</label>
         <input class="m-2 form form-control" type="text" placeholder="a.field1 < 1000 AND ...">
     </div>
     
     <div>
-        <label>Submit Event:</label>
+        <label>Submit events to query:</label>
         <EventTypeInput :event_types="query_event_types" :query_id="props.query.queryId"></EventTypeInput>
     </div>
 

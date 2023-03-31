@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple, Dict
 from lark import Lark
 from lark.visitors import Interpreter
 import json
@@ -12,8 +12,9 @@ l = Lark('''start: (event_def_list
 
             event_def: "TYPE"i name field_list
             field_list: "(" field ("," field)* ")"
-            field: WORDP
+            field: WORDP ":" type_name
             name:  WORDP
+            type_name: "INTEGER"i -> integer | "STRING"i -> string
 
 
             // EVENT //
@@ -90,7 +91,7 @@ l = Lark('''start: (event_def_list
 
 class EventType:
 
-    def __init__(self, name, fields: List[str]):
+    def __init__(self, name, fields: List[Tuple[str, str]]):
         self.name = name
         self.fields = fields
         
@@ -100,8 +101,12 @@ class EventType:
     
     @property
     def __dict__(self):
-        return {'name': self.name, 'fields': [f for f in self.fields]}
-       
+        return {'name': self.name, 'fields': self.__fields_to_dict(self.fields)}
+    
+    @staticmethod
+    def __fields_to_dict(fields: List[Tuple[str, str]]) -> List[Dict[str, str]]:
+        return [{"name": f[0], "type": f[1]} for f in fields]
+
 class EventVar:
     
     def __init__(self, event_type, name, order):
@@ -362,7 +367,7 @@ class CEPVisitor(Interpreter):
         assert tree.data == "event_def", tree.data
 
         event_name = tree.children[0].children[0]
-        event_fields = [str(c.children[0]) for c in tree.children[1].children]
+        event_fields = [(str(c.children[0]), str(c.children[1].data) ) for c in tree.children[1].children]
 
         e = EventType(event_name.value, event_fields)
         return e
@@ -608,10 +613,10 @@ def json_to_pretty(json):
 
 
 words = """
-type A(id, field1, field2)
-type B(id, field1, field2)
-type C(id, field1, field2)
-type D(id, field1, field2)
+type A(id: INTEGER, field1: STRING, field2: STRING)
+type B(id: INTEGER, field1: STRING, field2: STRING)
+type C(id: INTEGER, field1: STRING, field2: STRING)
+type D(id: INTEGER, field1: STRING, field2: STRING)
    
 EVENT SEQ(A a, !(C c),  D d)
 WHERE a.field1 = 100
@@ -625,5 +630,5 @@ if __name__ == "__main__":
     tree = l.parse(words)    
 
     r = CEPVisitor().visit(tree)
-    e = json.dumps(r.__dict__)
+    e = json.dumps(r.__dict__, indent=4)
     print( e )

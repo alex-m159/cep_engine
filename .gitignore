@@ -1,0 +1,12 @@
+.idea/
+.metals/
+.vscode/
+*/__pycache__/*
+*/venv/*
+query_data*
+server/target
+server/project/target
+server/project/project
+server2/src/App/bin/
+server2/src/App/obj/
+interpreter/

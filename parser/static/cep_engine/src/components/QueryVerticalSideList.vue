@@ -33,47 +33,9 @@ let listHidden = ref(true)
 
 </script>
 <template>
-  <!-- <div class="row">
-        <nav class="navbar navbar-light navbar-expand-md bg-secondary col-md-2">
-            <div class="container">
-                <a class="navbar-brand" href="#">
-                
-                </a>
-                <button
-                class="navbar-toggler"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#navbarSupportedContent2"
-                aria-controls="navbarSupportedContent"
-                aria-expanded="false"
-                aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-                </button>
-
-                <div class="collapse navbar-collapse" id="navbarSupportedContent2">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-item">
-                        <a class="nav-link active" aria-current="page" href="#">Home</a>
-                        <RouterLink to="/" class="nav-link active text-dark">Home</RouterLink>
-                        </li>
-                        <li class="nav-item">
-                        <a class="nav-link" href="#">Link</a>
-                        <RouterLink to="/about" class="nav-link active text-dark"
-                            >About</RouterLink
-                        >
-                        </li>
-                        <li class="nav-item">
-                        <RouterLink to="/queries" class="nav-link active text-dark"
-                            >Queries</RouterLink
-                        >
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </div> -->
+  
   <div class="row">
-    <nav class="navbar navbar-light navbar-expand-md col-md-2 d-block">
+    <div class="navbar navbar-light navbar-expand-md col-md-2 d-block p-0">
       <div class="container px-0">
         <a class="navbar-brand" href="#"> </a>
         <button
@@ -108,7 +70,7 @@ let listHidden = ref(true)
           </ul>
         </div>
       </div>
-    </nav>
+    </div>
     <div class="col-md-10">
       <div v-for="query in props.queryStore.queriesAsList">
         <QueryListItem
@@ -117,6 +79,13 @@ let listHidden = ref(true)
           @delete="props.queryStore.deleteQuery(query.queryId)"
         ></QueryListItem>
       </div>
+      <!-- <div >
+        <QueryListItem
+          v-if="props.queryStore.active !== undefined"
+          :query="props.queryStore.active"
+          @delete="props.queryStore.deleteQuery(query.queryId)"
+        ></QueryListItem>
+      </div> -->
       <h2 v-if="props.queryStore.active === undefined">Select a query from the dropdown</h2>
 
       <!-- <h2 v-if="activeQuery === null || activeQuery === undefined">Select a query from the dropdown</h2>

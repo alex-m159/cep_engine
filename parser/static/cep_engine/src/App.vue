@@ -82,7 +82,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
       </div>
     </nav>
   </div>
-  <div class="container">
+  <div class="container-fluid">
     <RouterView />
   </div>
 </template>
