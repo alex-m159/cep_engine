@@ -5,15 +5,25 @@
   </PropertyGroup>
   <ItemGroup>
     
-    <Compile Include="domain/core/Operators.fs" />
+    <!-- <Compile Include="domain/core/Operators.fs" /> -->
+
     <Compile Include="domain/core/Query.fs" />
+    <Compile Include="domain/core/Operators.fs" />
     <Compile Include="domain/ports/Parser.fs" />
-    <Compile Include="domain/adaptors/Query.fs" />
+    <Compile Include="domain/ports/QueryService.fs" />
+    <Compile Include="domain/ports/Planner.fs" />
+    <Compile Include="domain/ports/PlanExecutor.fs" />
+    <Compile Include="domain/adaptors/QueryServiceImpl.fs" />
+    <Compile Include="domain/adaptors/JsonParser.fs" />
+    <Compile Include="domain/adaptors/FSAExecutor.fs" />
+    <Compile Include="domain/controllers/rest/RestQueryController.fs" />
     <Compile Include="Rest/Routes.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Data" Version="5.0.2" />
+    <PackageReference Include="FSharp.Json" Version="0.4.1" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="1.1.23" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Suave" Version="2.6.2" />
   </ItemGroup>

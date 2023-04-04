@@ -11,44 +11,16 @@ open Rest.Routes
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 
+open Domain.Adaptors.JsonParser
+open Domain.Adaptors.QueryServiceImpl
+open Domain.Controllers.Rest.RestQueryController
+open Rest.Routes
 
-[<DataContract>]
-type TestInput =
-    { [<field: DataMember(Name = "input")>]
-        input : string
-    }
+let json_parser: JsonParser = new JsonParser()
+let service: QueryServiceImpl = new QueryServiceImpl(json_parser)
+let query: RestQueryController = new RestQueryController(service)
 
-[<DataContract>]
-type TestOutput =
-    { [<field: DataMember(Name = "output")>]
-        output: string
-    }
 
-let run = 
-    let json = """
-        {
-            "where": {
-                "expr_root": {
-                    "op": "and",
-                    "left": {
-                        "op": "s_eq",
-                        "left_var": "a",
-                        "left_field": "field1",
-                        "literal": "100"
-                    },
-                    "right": {
-                        "op": "p_eq",
-                        "left_var": "d",
-                        "left_field": "field1",
-                        "right_var": "a",
-                        "right_field": "field1"
-                    }
-                }
-            }
-        }
-    """
-    let parsed = JObject.Parse(json)
-    parsed
 
 
 [<EntryPoint>]
@@ -58,19 +30,22 @@ let main args =
     // let value, json = getJson {| args=args; year=System.DateTime.Now.Year |}
     // printfn $"Input: %0A{value}"
     // printfn $"Output: %s{json}"
-
-    // let cts = new CancellationTokenSource()
-    // let conf = { defaultConfig with cancellationToken = cts.Token }
-    // let listening, server = startWebServerAsync conf app
     
-    // Async.Start(server, cts.Token)
+    let app = createApp(query)
+
+    let cts = new CancellationTokenSource()
+    let conf = { defaultConfig with cancellationToken = cts.Token }
+    let listening, server = startWebServerAsync conf app
+    
+    Async.Start(server, cts.Token)
     printfn "Make requests now"
     
         
-    // cts.Cancel()
-    let root = run.SelectToken("where.expr_root")
-    let op = root.SelectToken("op").Value<string>()
+    // let root = run.SelectToken("where.expr_root")
+    // let op = root.SelectToken("op").Value<string>()
     
 
     Console.ReadKey true |> ignore
+    cts.Cancel()
+
     0 // return an integer exit code

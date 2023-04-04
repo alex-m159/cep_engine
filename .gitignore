@@ -9,5 +9,7 @@ server/project/target
 server/project/project
 server2/src/App/bin/
 server2/src/App/obj/
+server2/src/App.Tests/obj/
+server2/src/App.Tests/bin/
 interpreter/
 .fake

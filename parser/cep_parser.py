@@ -630,5 +630,5 @@ if __name__ == "__main__":
     tree = l.parse(words)    
 
     r = CEPVisitor().visit(tree)
-    e = json.dumps(r.__dict__, indent=4)
+    e = json.dumps(r.__dict__)
     print( e )

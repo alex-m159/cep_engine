@@ -11,7 +11,7 @@ type Field =
 type EventType = 
     {
         name: string;
-        fields: List<Field>
+        fields: seq<Field>
     }
 
 type EventParam = 
@@ -29,7 +29,7 @@ type FieldBinding =
 type EventBinding =
     {
         param: EventParam
-        bound_fields: FieldBinding
+        bound_fields: seq<FieldBinding>
     }
 
 type ComparisonOp = GT | GTEq | LT | LTEq | Eq | NEq
@@ -84,7 +84,7 @@ type SubSeqExpr =
 
 type SeqExpr = 
     SingletonSeq of SubSeqExpr
-    | Seq of List<SubSeqExpr>
+    | Seq of seq<SubSeqExpr>
     
 
 
@@ -92,17 +92,35 @@ type EventClause = Event of SeqExpr
 
 type TimeUnits = MINUTE | HOUR | SECOND 
 
-type Within = 
+type Within = Within of TimeUnits * int
+
+type QueryStatus = RUNNING | STOPPED | FAILED | NOT_STARTED
+
+type QueryInfo = 
     {
-        units: TimeUnits
-        magnitude: int
+        query_id: int
+        status: QueryStatus
     }
 
 type Query = 
     {
-        event_types: EventType[]
+        event_types: seq<EventType>
         event_clause: EventClause
         where: Option<Where>
         within: Option<Within>
     }
+
+(* 
+    End Language Constructs 
+*)
+
+type QueryResult = {
+    events: seq<EventBinding>
+}
+
+type CreateQueryCommand = 
+    {
+        query: Query
+    }
+
 

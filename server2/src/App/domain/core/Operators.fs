@@ -1,27 +1,22 @@
 namespace Domain.Core.Operators
 
-// open Domain.Core.Query
+open FSharp.Collections
+open Domain.Core.Query
+(*
+    Still debating between potential designs.
+    One is that every operator is it's own object and has its downstream operators as arguments.
+    Another is that every operator is just a data type and then there are different execution functions
+    that will run different code based on each physical operator
+*)
 
+type DataSource<'T> = DataSource of seq<'T>
 
-type Operator<'a> =
-    abstract member push : 'a -> unit
+(* Logical Operators *)
+type Operator<'T> =
+    SSC of DataSource<'T>
+    | Selection of WhereExpr * Operator<'T>
+    | Window of Within * Operator<'T>
+    | Negation of SubSeqExpr * Operator<'T>
+    | Transformation of Operator<'T>
 
-type SSC<'a> = 
-    abstract member push : 'a -> unit
-
-type Selection<'a> =
-    abstract member push : 'a -> unit
-
-type Window<'a> =
-    abstract member push : 'a -> unit
-
-type Negation<'a> =
-    abstract member push : 'a -> unit
-
-type Transformation<'a> =
-    abstract member push : 'a -> unit
-
-type Plan<'a> = Root of Operator<'a>
-
-// type Planner =
-//     abstract member plan : Query -> Plan
+type Plan<'T> = Plan of Operator<'T>
