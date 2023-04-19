@@ -90,6 +90,53 @@ let onlyEventParam(sub: SubSeqExpr): EventParam =
         | EventParam(ep) -> ep
         | Not(ep) -> ep
 
+let rec makeFSM(s: List<SubSeqExpr>): State =
+    match s with 
+        | head :: [] ->
+            match head with
+                | EventParam(p) | Not(p) | Optional(p) -> 
+                    {
+                        event_param = Some p;
+                        event_type = p.event_type;
+                        success_state = true;
+                        failure_state = false;
+                        transitions = Map.empty;
+                    }
+        | head :: second :: [] ->
+            let next = makeFSM( second::[] )
+            
+            match head with 
+                | EventParam(p) | Not(p) | Optional(p) ->
+                    {
+                        event_param = Some p;
+                        event_type = p.event_type;
+                        success_state = false;
+                        failure_state = false;
+                        transitions = Map( seq { (next.event_type.name, next) } );
+                    }
+        | head :: second :: tail ->
+            let next = makeFSM( second::tail )
+            
+            let transitions = 
+                match second with 
+                    | EventParam(_) | Not(_) ->
+                        Map( seq { (next.event_type.name, next) } );
+                    | Optional(_) ->
+                        let after = seq { for i in next.transitions.Values do yield (i.event_type.name, i) }
+                        let now = seq { (next.event_type.name, next) }
+                        let transitions = Seq.append now after
+                        Map( transitions );
+            
+            match head with 
+                | EventParam(p) | Not(p) | Optional(p) ->
+                    {
+                        event_param = Some p;
+                        event_type = p.event_type;
+                        success_state = false;
+                        failure_state = false;
+                        transitions = transitions;
+                    }
+
 let toDFA(query: Query): State = 
     // let EventClause(seq_expr: SeqExpr) = query.event_clause 
 
@@ -103,8 +150,8 @@ let toDFA(query: Query): State =
                 transitions = Map.empty;
             }
             let start = {
-                event_param = Some param;
-                event_type = param.event_type;
+                event_param = None;
+                event_type = StartingType;
                 success_state = false;
                 failure_state = false;
                 transitions = Map(seq { (s.event_type.name, s) });
@@ -113,8 +160,8 @@ let toDFA(query: Query): State =
         | Event(SingletonSeq(Not(param))) -> 
             let success_states = query.event_types |> Seq.map(makeSuccessState)
             let start = {
-                event_param = Some param;
-                event_type = param.event_type;
+                event_param = None;
+                event_type = StartingType;
                 success_state = false;
                 failure_state = false;
                 transitions = Map(success_states)
@@ -122,7 +169,9 @@ let toDFA(query: Query): State =
             start
             
         | Event(Seq(subs)) ->
-
+            let state = makeFSM(List.ofSeq subs)
+            startState state
+            (*
             match subs |> Array.ofSeq with
 
                 | [| f; s  |] ->
@@ -162,62 +211,139 @@ let toDFA(query: Query): State =
                             }
                     
                     startState(first)
-                | [| f; s;  t|] ->
-                    printfn "Running 3 event block"
-                    let third = match t with 
-                        | EventParam(p) ->
-                            {
-                                event_param = Some p;
-                                event_type = p.event_type;    
-                                success_state = true;
-                                failure_state = false;
-                                transitions = Map.empty
-                            }
-                        | Not(p) ->
-                            {
-                                event_param = Some p;
-                                event_type = p.event_type;    
-                                success_state = true;
-                                failure_state = false;
-                                transitions = Map.empty
-                            }
+                | [| EventParam(f); EventParam(s);  EventParam(t)|] ->
+                    let third =                        
+                        {
+                            event_param = Some t;
+                            event_type = t.event_type;
+                            success_state = true;
+                            failure_state = false;
+                            transitions = Map.empty
+                        }
+                        
 
-                    let second = match s with 
-                        | EventParam(p) ->
-                            {
-                                event_param = Some p;
-                                event_type = p.event_type;    
-                                success_state = false;
-                                failure_state = false;
-                                transitions = Map(seq { (third.event_type.name, third) })
-                            }
-                        | Not(p) ->
-                            {
-                                event_param = Some p;
-                                event_type = p.event_type;    
-                                success_state = false;
-                                failure_state = false;
-                                transitions = Map(seq { (third.event_type.name, third) });
-                            }
-                    let first = match f with 
-                        | EventParam(p) ->
-                            {
-                                event_param = Some p;
-                                event_type = p.event_type;    
-                                success_state = false;
-                                failure_state = false;
-                                transitions = Map(seq { (second.event_type.name, second) });
-                            }
-                        | Not(p) ->
-                            {
-                                event_param = Some p;
-                                event_type = p.event_type;    
-                                success_state = false;
-                                failure_state = false;
-                                transitions = Map(seq { (second.event_type.name, second) });
-                            }
+                    let second = 
+                        {
+                            event_param = Some s;
+                            event_type = s.event_type;    
+                            success_state = false;
+                            failure_state = false;
+                            transitions = Map(seq { (third.event_type.name, third) })
+                        }
+
+                    let first =
+                        {
+                            event_param = Some f;
+                            event_type = f.event_type;    
+                            success_state = false;
+                            failure_state = false;
+                            transitions = Map(seq { (second.event_type.name, second) });
+                        }
                     
                     startState(first)
+                
+                | [|EventParam(f); Not(s); EventParam(t)|] -> 
+                    let third =                        
+                        {
+                            event_param = Some t;
+                            event_type = t.event_type;
+                            success_state = true;
+                            failure_state = false;
+                            transitions = Map.empty
+                        }
+                        
+
+                    let second = 
+                        {
+                            event_param = Some s;
+                            event_type = s.event_type;    
+                            success_state = false;
+                            failure_state = false;
+                            transitions = Map(seq { (third.event_type.name, third) })
+                        }
+
+                    let first =
+                        {
+                            event_param = Some f;
+                            event_type = f.event_type;    
+                            success_state = false;
+                            failure_state = false;
+                            transitions = Map(seq { (second.event_type.name, second) });
+                        }
+                    
+                    startState(first)
+
+                | [|EventParam(f); Optional(s); EventParam(t)|] -> 
+                    let third =                        
+                        {
+                            event_param = Some t;
+                            event_type = t.event_type;
+                            success_state = true;
+                            failure_state = false;
+                            transitions = Map.empty
+                        }
+                        
+
+                    let second = 
+                        {
+                            event_param = Some s;
+                            event_type = s.event_type;    
+                            success_state = false;
+                            failure_state = false;
+                            transitions = Map(seq { (third.event_type.name, third) })
+                        }
+
+                    let first =
+                        {
+                            event_param = Some f;
+                            event_type = f.event_type;    
+                            success_state = false;
+                            failure_state = false;
+                            transitions = Map(seq { (second.event_type.name, second); (third.event_type.name, third) });
+                        }
+                    
+                    startState(first)
+
+                | [|EventParam(f); Optional(s); Optional(t); EventParam(fo)|] -> 
+                    let fourth =                        
+                        {
+                            event_param = Some fo;
+                            event_type = fo.event_type;
+                            success_state = true;
+                            failure_state = false;
+                            transitions = Map.empty
+                        }
+
+                    let third =                        
+                        {
+                            event_param = Some t;
+                            event_type = t.event_type;
+                            success_state = true;
+                            failure_state = false;
+                            transitions = Map(seq { (fourth.event_type.name, fourth) })
+                        }
+                        
+
+                    let second = 
+                        {
+                            event_param = Some s;
+                            event_type = s.event_type;    
+                            success_state = false;
+                            failure_state = false;
+                            transitions = Map(seq { (third.event_type.name, third); (fourth.event_type.name, fourth) })
+                        }
+
+                    let first =
+                        {
+                            event_param = Some f;
+                            event_type = f.event_type;    
+                            success_state = false;
+                            failure_state = false;
+                            transitions = Map(seq { (second.event_type.name, second); (third.event_type.name, third); (fourth.event_type.name, fourth); });
+                        }
+                    
+                    startState(first)
+            *)
         | _ -> 
             {
                 event_param = None;
@@ -262,6 +388,16 @@ type FSMSSC(state: State, input: unit -> Option<EventBinding>, output: Option<Ev
     
     static member processEvent(event: EventBinding, current: State * StateSummary * EventBinding[], state: State): State * StateSummary * EventBinding[] =
         nextState(event, current, state)
+    
+    static member someResult(
+        event: EventBinding, 
+        current: State * StateSummary * EventBinding[], 
+        state: State): (State * StateSummary * EventBinding[]) * Option<EventBinding[]> =
+        let res = FSMSSC.processEvent(event, current, state)
+        match res with
+            | (s, SUCCESS, es) -> ((s, SUCCESS, es), Some es )
+            | x -> (x, None )
+
 
     static member runstuff(state: State, input: unit -> Option<EventBinding>, output: Option<EventBinding> -> unit): unit = 
         printfn "Starting runstuff()"

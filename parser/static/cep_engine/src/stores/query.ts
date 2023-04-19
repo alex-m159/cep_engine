@@ -1,11 +1,10 @@
 import { defineStore, createPinia } from "pinia"
 import type { Store } from "pinia"
 import { reactive } from "vue"
-import piniaPersist from 'pinia-plugin-persist'
+import {useStorage} from "@vueuse/core"
 
 export const pinia = createPinia()
 
-pinia.use(piniaPersist)
 
 export interface CEPMatch {
     match: any
@@ -90,9 +89,9 @@ export class Query implements QueryI {
 }
 
 
-let QueryStore = defineStore('query_store', {
+let useQueryStore = defineStore('query_store', {
     state: () => ({ 
-        queryList: new Map<number, QueryI>(),
+        queryList: useStorage("queries", new Map<number, QueryI>()),
         visibleQuery: undefined as unknown as number,
         threshold: 100
     }),
@@ -101,7 +100,8 @@ let QueryStore = defineStore('query_store', {
             return state.queryList
         },
         queriesAsList(state) {
-            return Array.from(state.queryList.values())
+            let values = Array.from(state.queryList.values())
+            return values
         },
         active(state): QueryI | undefined {
             if(state.visibleQuery)
@@ -130,17 +130,18 @@ let QueryStore = defineStore('query_store', {
             if(this.queryList.has(qid)) {
                 this.visibleQuery = qid
             }
-            
+        },
+        deleteAll() {
+            this.queryList.clear()
         }
-    }
-
+    },
 })
 
 // Create an instance so that we can get the type of
 // Store instead of StoreDefinition.
 // We'll only use this for getting the type so we 
 // don't have to constantly update it
-let inst = QueryStore(pinia)
+let inst = useQueryStore(pinia)
 export type QueryStoreT = typeof inst
 
-export default QueryStore
+export default useQueryStore

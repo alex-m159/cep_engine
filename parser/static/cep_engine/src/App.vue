@@ -1,118 +1,275 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from "vue-router";
+import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 import HelloWorld from "./components/HelloWorld.vue";
-// This is bootstrap 5 NPM package. If this starts
-// to fail, switch to "BootstrapVue" package
-import "bootstrap";
-import "bootstrap/dist/css/bootstrap.min.css";
+import {computed} from "vue"
+import {ref, type Ref} from 'vue'
+// <img
+//             alt="Streamento logo"
+//             class="logo"
+//             src="@/assets/beaker-icon.png"
+//             height="80"
+//           />
+
+
+
+/* Navigation Menu */
+const router = useRouter()
+const route = useRoute()
+
+const menu_items = [
+  ref({route: "/", menu_id:"home", page_name: "Home", icon: "bi-house-door", active: false}),
+  ref({route: "/queries/list", menu_id:"queries", page_name: "Queries", icon: "bi-activity", active: false}),
+  ref({route: "/about", menu_id:"about", page_name: "About", icon: "bi-question-circle-fill", active: false}),
+]
+
+
+/* This ensures the navbar is synced with the current page. */
+router
+.isReady()
+.then(() => {
+  menu_items.map((mi) => {
+    console.log(`ROUTE PATH: ${route.path}`)
+    if(route.path.includes(mi.value.menu_id)) {
+      mi.value.active = true
+    } else if(route.name === mi.value.menu_id) {
+      mi.value.active = true
+    } else {
+      mi.value.active = false
+    }
+  })
+})
+
+/* This ensures the navbar is synced for all the pages that are navigated to in the future */
+router.afterEach((to, from, failure) => {
+  menu_items.map((mi) => {
+    console.log(`ROUTE PATH: ${route.path}`)
+    if(route.path.includes(mi.value.menu_id)) {
+      mi.value.active = true
+    } else if(route.name === mi.value.menu_id) {
+      mi.value.active = true
+    } else {
+      mi.value.active = false
+    }
+  })
+})
+
+function menuClick(e: Event) {
+  console.log(e)
+  let menu_id: string = e.target.id
+  menu_items.map((item) => {
+    if(item.value.menu_id === menu_id) {
+      item.value.active = true
+    } else {
+      item.value.active = false
+    }
+  })
+}
 
 </script>
 
 <template>
-  <div class="container-fluid app-header">
-    <nav class="navbar navbar-dark navbar-expand-md">
-      <div class="container">
-        <a class="navbar-brand" href="#">
+  <!-- Here was trying to use the container > row > col layout that Bootstrap recommends to layout the sidebar, but it wasn't  working properly-->
+  <!-- <div class="container-fluid p-0">
+    <div class="row">
+      <div class="col">
+        <div class="menu-sidebar">
+          <div class="offcanvas offcanvas-start bg-dark" tabindex="-1" id="smallMenu" aria-labelledby="smallMenu">
+            <div class="offcanvas-header">
+              <img
+                alt="Streamento logo"
+                class="logo"
+                src="@/assets/beaker-icon.png"
+                height="30"/>
+              <h5 class="offcanvas-title text-white" id="offcanvasExampleLabel">Streamento</h5>
+              <button type="button" class="btn-close text-reset btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body">
+              <ul class="nav nav-pills flex-column mb-auto">
+                <li class="nav-item" v-for="item in menu_items">
+                  <RouterLink :to="item.value.route" class="nav-link text-white" :class="{active: item.value.active }" aria-current="page" :id="item.value.menu_id" @click="menuClick">
+                    <i class="bi me-2" :class="item.value.icon" style="font-size: 1.2;"></i>
+                    {{ item.value.page_name }}
+                  </RouterLink>
+                </li>
+              </ul>
+
+              <ul class="text-small dropdown-menu">
+                <li><a class="dropdown-item" href="#">New project...</a></li>
+                <li><a class="dropdown-item" href="#">Settings</a></li>
+                <li><a class="dropdown-item" href="#">Profile</a></li>
+                <li><a class="dropdown-item" href="#">Sign out</a></li>
+              </ul>
+              <a href="#" 
+                class="d-flex align-items-center text-white text-decoration-none mt-2 dropdown-toggle" 
+                data-bs-toggle="dropdown" aria-expanded="false">
+                <img src="https://github.com/mdo.png" alt="" class="rounded-circle me-2" width="32" height="32">
+                <strong>mdo</strong>
+              </a>
+            </div>
+          </div>
+
+          <div class="d-md-flex d-none flex-column flex-shrink-0 p-3 text-white bg-dark collapse collapse-horizontal show">
+          <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none pe-5">
+            <img
+              alt="Streamento logo"
+              class="logo me-2"
+              src="@/assets/beaker-icon.png"
+              height="30"/>
+            <span class="fs-4">Streamento</span>
+          </a>
+          <hr>
+          
+
+          <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item" v-for="item in menu_items">
+            
+              <RouterLink :to="item.value.route" class="nav-link text-white" :class="{active: item.value.active }" aria-current="page" :id="item.value.menu_id" @click="menuClick">
+                <i class="bi me-2" :class="item.value.icon" style="font-size: 1.2;"></i>
+                {{ item.value.page_name }}
+              </RouterLink>
+            </li>
+          </ul>
+          <hr>
+
+
+            <div class="collapse" id="collapsableMenu">
+              <ul class="text-small list-group list-inline">
+                <li><a class="list-group-item" href="#">New project...</a></li>
+                <li><a class="list-group-item" href="#">Settings</a></li>
+                <li><a class="list-group-item" href="#">Profile</a></li>
+                <li><a class="list-group-item" href="#">Sign out</a></li>
+              </ul>
+            </div>
+            <a href="#collapsableMenu" 
+              class="d-flex align-items-center text-white text-decoration-none mt-2" 
+              data-bs-toggle="collapse" data-bs-target="#collapsableMenu" aria-expanded="false">
+              <img src="https://github.com/mdo.png" alt="" class="rounded-circle me-2" width="32" height="32">
+              <strong>mdo</strong>
+            </a>
+          </div>
+          <div>
+            <i class="bi bi-arrow-right-square ms-2 d-md-none" style="font-size: 2em;" data-bs-toggle="offcanvas" data-bs-target="#smallMenu" aria-controls="smallMenu"></i>
+          </div>
+          
+        </div>
+      </div>
+      <div class="col">
+        <RouterView class=""></RouterView>
+      </div>
+    </div>
+  </div> -->
+
+
+  <div class="">
+    <div class="menu-sidebar">
+      <div class="offcanvas offcanvas-start bg-dark" tabindex="-1" id="smallMenu" aria-labelledby="smallMenu">
+        <div class="offcanvas-header">
           <img
             alt="Streamento logo"
             class="logo"
             src="@/assets/beaker-icon.png"
-            height="80"
-          />
-        </a>
-        <button
-          class="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarSupportedContent"
-          aria-controls="navbarSupportedContent"
-          aria-expanded="false"
-          aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <li class="nav-item">
-              <!-- <a class="nav-link active" aria-current="page" href="#">Home</a> -->
-              <RouterLink to="/" class="nav-link active text-light">Home</RouterLink>
-            </li>
-            <li class="nav-item">
-              <!-- <a class="nav-link" href="#">Link</a> -->
-              <RouterLink to="/about" class="nav-link active text-light"
-                >About</RouterLink
-              >
-            </li>
-            <li class="nav-item">
-              <RouterLink to="/queries" class="nav-link active text-light"
-                >Queries</RouterLink
-              >
+            height="30"/>
+          <h5 class="offcanvas-title text-white" id="offcanvasExampleLabel">Streamento</h5>
+          <button type="button" class="btn-close text-reset btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+          <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item" v-for="item in menu_items">
+              <RouterLink :to="item.value.route" class="nav-link text-white" :class="{active: item.value.active }" aria-current="page" :id="item.value.menu_id" @click="menuClick">
+                <i class="bi me-2" :class="item.value.icon" style="font-size: 1.2;"></i>
+                {{ item.value.page_name }}
+              </RouterLink>
             </li>
           </ul>
-          <form class="d-flex">
-            <input
-              class="form-control me-2"
-              type="search"
-              placeholder="Search"
-              aria-label="Search"
-            />
-            <button class="btn btn-outline-light" type="submit">Search</button>
-          </form>
+
+          <ul class="text-small dropdown-menu">
+            <li><a class="dropdown-item" href="#">New project...</a></li>
+            <li><a class="dropdown-item" href="#">Settings</a></li>
+            <li><a class="dropdown-item" href="#">Profile</a></li>
+            <li><a class="dropdown-item" href="#">Sign out</a></li>
+          </ul>
+          <a href="#" 
+            class="d-flex align-items-center text-white text-decoration-none mt-2 dropdown-toggle" 
+            data-bs-toggle="dropdown" aria-expanded="false">
+            <img src="https://github.com/mdo.png" alt="" class="rounded-circle me-2" width="32" height="32">
+            <strong>mdo</strong>
+          </a>
         </div>
-
-        <!-- <div class="wrapper">
-            <HelloWorld msg="Streamento Event Engine" />
-
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-              <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                  <a class="nav-link active" aria-current="page" href="#">Home</a>
-                  <RouterLink to="/" class="nav-link active">Home</RouterLink>
-                </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="#">Link</a>
-                  <RouterLink to="/about" class="nav-link active">About</RouterLink>
-                </li>
-                <li class="nav-item">
-                  <RouterLink to="/queries" class="nav-link active">Queries</RouterLink>
-                </li>
-              </ul>
-            </div>
-          </div> -->
       </div>
-    </nav>
+
+      <div class="d-lg-flex d-none flex-column flex-shrink-0 p-3 text-white bg-dark collapse collapse-horizontal show">
+      <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none pe-5">
+        <img
+          alt="Streamento logo"
+          class="logo me-2"
+          src="@/assets/beaker-icon.png"
+          height="30"/>
+        <span class="fs-4">Streamento</span>
+      </a>
+      <hr>
+      
+
+      <ul class="nav nav-pills flex-column mb-auto">
+        <li class="nav-item" v-for="item in menu_items">
+        
+          <RouterLink :to="item.value.route" class="nav-link text-white" :class="{active: item.value.active }" aria-current="page" :id="item.value.menu_id" @click="menuClick">
+            <i class="bi me-2" :class="item.value.icon" style="font-size: 1.2;"></i>
+            {{ item.value.page_name }}
+          </RouterLink>
+        </li>
+      </ul>
+      <hr>
+
+
+        <div class="collapse" id="collapsableMenu">
+          <ul class="text-small list-group list-inline">
+            <li><a class="list-group-item" href="#">New project...</a></li>
+            <li><a class="list-group-item" href="#">Settings</a></li>
+            <li><a class="list-group-item" href="#">Profile</a></li>
+            <li><a class="list-group-item" href="#">Sign out</a></li>
+          </ul>
+        </div>
+        <a href="#collapsableMenu" 
+          class="d-flex align-items-center text-white text-decoration-none mt-2" 
+          data-bs-toggle="collapse" data-bs-target="#collapsableMenu" aria-expanded="false">
+          <img src="https://github.com/mdo.png" alt="" class="rounded-circle me-2" width="32" height="32">
+          <strong>mdo</strong>
+        </a>
+      </div>
+      <div class="position-fixed d-lg-none">
+        <!-- <i class="bi bi-arrow-right-square ms-2 d-md-none position-fixed text-bg-light" style="font-size: 2em; height: 32px; width: 32px;" data-bs-toggle="offcanvas" data-bs-target="#smallMenu" aria-controls="smallMenu"></i> -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-arrow-right-square ms-2 mt-2 bg-light" viewBox="0 0 16 16" data-bs-toggle="offcanvas" data-bs-target="#smallMenu" aria-controls="smallMenu">
+          <path fill-rule="evenodd" d="M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm4.5 5.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H4.5z"/>
+        </svg>
+      </div>
+        <div class="container-fluid" style="overflow: scroll;">
+          <RouterView></RouterView>  
+        </div>  
+    </div>
   </div>
-  <div class="container-fluid">
-    <RouterView />
-  </div>
+        
+    
+
 </template>
 
 <style lang="scss">
-// @import "scss/_variables.scss";
-@import "../node_modules/bootstrap/scss/functions";
-@import "../node_modules/bootstrap/scss/variables";
-@import "../node_modules/bootstrap/scss/mixins";
 
-// 4. Include any optional Bootstrap components as you like
-@import "../node_modules/bootstrap/scss/root";
-@import "../node_modules/bootstrap/scss/reboot";
-@import "../node_modules/bootstrap/scss/type";
-@import "../node_modules/bootstrap/scss/images";
-@import "../node_modules/bootstrap/scss/containers";
-@import "../node_modules/bootstrap/scss/grid";
+$on-medium: 768px;
 
-// @import "bootstrap/scss/mixins";
-// @import "bootstrap/scss/utilities";
-// @import "bootstrap/scss/helpers";
-// @import "bootstrap/scss/functions";
-// @import "bootstrap/scss/variables";
-
-.app-header {
-  background-color: $purple-600;
+.menu-sidebar {
+  display: flex;
+  flex-wrap: nowrap;
+  height: 100vh;
+  height: -webkit-fill-available;
+  max-height: 100vh;
+  overflow-x: auto;
+  overflow-y: scroll;
 }
-</style>
 
-<style>
+
+
+
+
 /* @import '@/assets/base.css';
 
 #app {

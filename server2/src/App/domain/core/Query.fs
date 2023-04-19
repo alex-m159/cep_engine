@@ -81,6 +81,8 @@ type Where = WhereRoot of WhereExpr
 type SubSeqExpr = 
     EventParam of EventParam
     | Not of EventParam
+    | Optional of EventParam
+    // | Any of EventParam[]
 
 type SeqExpr = 
     SingletonSeq of SubSeqExpr

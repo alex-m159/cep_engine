@@ -6,10 +6,11 @@ import HomeView from '../views/HomeView.vue'
 import QueryListView from '../views/QueryListView.vue'
 import type {QueryI, QueryStoreT} from "../stores/query"
 import {pinia} from "../stores/query"
-import QueryStore from '../stores/query'
+import useQueryStore from '../stores/query'
+import QueryEditor from '@/components/QueryEditor.vue';
+import QueryPage from '@/components/QueryPage.vue';
 
 
-const queryStore: QueryStoreT = QueryStore(pinia)
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -29,15 +30,21 @@ const router = createRouter({
       component: () => import('../views/AboutView.vue')
     },
     {
-      path: '/queries',
+      path: '/queries/list/:page?',
       name: 'queries',
       component: QueryListView,
-      props: {
-        queryStore: queryStore,
-      }
+    },
+    {
+      path: '/queries/new',
+      name: 'new_query',
+      component: QueryEditor,
+    },
+    {
+      path: '/queries/:query_id',
+      name: 'query_page',
+      component: QueryPage,
     }
   ]
 })
-
 
 export default router
