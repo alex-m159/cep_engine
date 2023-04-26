@@ -53,14 +53,45 @@ let onlyEventParam(sub: SubSeqExpr): EventParam =
         | EventParam(ep) -> ep
         | Not(ep) -> ep
 
-(* 
-    Assumptions/Pre-conditions:
+// The transition seq is passed back just so that the states can be added to the optional carry
+let buildNextState(p: EventParam, next: State, neg_states, op_carry): State = 
+    let neg_seq = seq {for state in neg_states do yield (state.event_type.name, state)}
+    let immediate_next = seq { (next.event_type.name, next) }
+    let carry_seq = seq { for i in op_carry do yield (i.event_type.name, i) }
+    let all = Seq.append (Seq.append immediate_next neg_seq) carry_seq
+    let current = {
+        event_param = Some p;
+        event_type = p.event_type;
+        success_state = false;
+        failure_state = false;
+        transitions = Map( all );
+    }
+    current
+ 
+(*
+    Pre-conditions:
         The first and last SubSeqExpr is not Optional or Not events.
         Argument is list of at least 2 events
         Not events cause the SSC to move to failure state
-            since this function assumes that there are no WHERE conditions and no WITHIN conditions
+        since this function assumes that there are no WHERE conditions and no WITHIN conditions
+    
+    Implementation Notes:
+        This function will process the last element of the SEQ first and 
+        as it goes backwards towards the first element, it will pass along Not() states (neg_states)
+        and Optional() carries (op_carry).
+
+        The Not() states are added as transitions to the next EventParam() or Optional(),
+        and the Optional() carries are added as transition to the next EventParam() param.
+
+        This is necessary since Not() parameters are dead-ends for the State graph, and we can't just 
+        copy over their transitions to skip over them. The Optional() carries are necessary because if there are a
+        series of Optional() (or Not()) elements, we'll want all their downstream transitions to be
+        carried back to the next earliest EventParam() so that Optional() and Not() States can 
+        be skipped over when needed. You can't do either of these by simply operating on elements 
+        pair wise (i.e. (head :: second :: tail) ), so we need to pass back the State transitions 
+        until we find an EventParam() to attach them to, and then we can clear the carries list. 
 *)
-let rec makeFSM(s: List<SubSeqExpr>): (State * List<State>) =
+let rec makeFSM(s: List<SubSeqExpr>): (State * List<State> * List<State>) =
     match s with 
         | head :: [] ->
             let current = match head with
@@ -74,10 +105,10 @@ let rec makeFSM(s: List<SubSeqExpr>): (State * List<State>) =
                     }
                 | Not(p) | Optional(p) ->
                     raise (System.ArgumentException($"Event parameter {head} must be EventParam() since this FSA construction function assumes that the query has no where or within clause"))
-            ( current, [] )
+            ( current, [], [])
 
         | head :: second :: [] ->
-            let (next, neg_states) = makeFSM( second::[] )
+            let (next, neg_states, op_carry) = makeFSM( second::[] )
             
             // This shouldn't happen if the precondition is followed, but
             // if second is not or optional, then head should be a success state
@@ -88,17 +119,19 @@ let rec makeFSM(s: List<SubSeqExpr>): (State * List<State>) =
                 | _ -> ()
 
             match head with 
-                | EventParam(p) | Optional(p) ->
-                    let neg_seq = seq {for state in neg_states do yield (state.event_type.name, state)}
-                    let immediate_next = seq { (next.event_type.name, next) }
-                    let current = {
-                        event_param = Some p;
-                        event_type = p.event_type;
-                        success_state = false;
-                        failure_state = false;
-                        transitions = Map(  (Seq.append immediate_next neg_seq) );
-                    }
-                    (current,  []) 
+                | EventParam(p) ->
+                    let current = buildNextState(p, next, neg_states, op_carry)
+                    // We can clear the Not() and Optional() carries since EventParams() are not 
+                    // skipped over in the State graph
+                    (current,  [], []) 
+
+                | Optional(p) ->
+                    let current = buildNextState(p, next, neg_states, op_carry)
+                    let next_carry = List.ofSeq( seq { for i in current.transitions.Values do yield i } )
+                    // We clear the Not() carries since they're now included in the Optional() carries
+                    // and will be attached to the next EventParam()
+                    (current,  [], next_carry)
+
                 | Not(p) -> 
                     let current = {
                         event_param = Some p;
@@ -107,41 +140,19 @@ let rec makeFSM(s: List<SubSeqExpr>): (State * List<State>) =
                         failure_state = true;
                         transitions = Map( Seq.empty );
                     }
-                    (next,  current :: neg_states) 
+                    (next,  current :: neg_states, op_carry) 
         | head :: second :: tail ->
-            let (next, neg_states) = makeFSM( second::tail )
-            
-            let transitions = 
-                match second with 
-                    | EventParam(_)  ->
-                        // let neg_seq = seq {for state in neg_states do yield (state.event_type.name, state)}
-                        let immediate_next = seq { (next.event_type.name, next) }
-                        immediate_next
-                    | Optional(p) ->
-                        // Include the transition of the next one since we may skip the next and go to the one after.
-                        let after_next = seq { for i in next.transitions.Values do yield (i.event_type.name, i) }
-                        let immediate_next = seq { (next.event_type.name, next) }
-                        let all = Seq.append immediate_next after_next
-                        all;
-
-                    | Not(p) -> 
-                        (* Adds a transition to the Not()'d event and to the positive event after the Not() *)
-                        // let neg_seq = seq {for state in neg_states do yield (state.event_type.name, state)}
-                        let immediate_next = seq { (next.event_type.name, next) }
-                        immediate_next
-                        
+            let (next, neg_states, op_carry) = makeFSM( second::tail )                   
             
             match head with
-                | EventParam(p) | Optional(p) ->
-                    let neg_seq = seq {for state in neg_states do yield (state.event_type.name, state)}
-                    let current = {
-                        event_param = Some p;
-                        event_type = p.event_type;
-                        success_state = false;
-                        failure_state = false;
-                        transitions = Map( Seq.append transitions neg_seq );
-                    }
-                    (current, [])
+                | EventParam(p) ->
+                    let current = buildNextState(p, next, neg_states, op_carry)
+                    (current,  [], [])
+                | Optional(p) -> 
+                    let current = buildNextState(p, next, neg_states, op_carry)
+                    let next_carry = List.ofSeq( seq { for i in current.transitions.Values do yield i } )
+                    (current,  [], next_carry)
+
                 | Not(p) -> 
                     let current = {
                         event_param = Some p;
@@ -150,10 +161,8 @@ let rec makeFSM(s: List<SubSeqExpr>): (State * List<State>) =
                         failure_state = true;
                         transitions = Map( Seq.empty );
                     }
-                    (next,  current :: neg_states) 
-
-
-
+                    (next,  current :: neg_states, op_carry) 
+                
 
 let toDFA(query: Query): State = 
     match query.event_clause with
@@ -185,7 +194,7 @@ let toDFA(query: Query): State =
             start
             
         | Event(Seq(subs)) ->
-            let (state, _) = makeFSM(List.ofSeq subs)
+            let (state, _, _) = makeFSM(List.ofSeq subs)
             startState state
 
         | _ -> 

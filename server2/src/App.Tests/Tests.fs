@@ -143,7 +143,7 @@ let serializeState state =
     JsonFSharpOptions.Default()
         .AddToJsonSerializerOptions(options)
 
-    printf $"{JsonSerializer.Serialize(state, options)}"
+    printfn $"{JsonSerializer.Serialize(state, options)}"
 
 
 [<Fact>]
@@ -285,13 +285,8 @@ let ``Test 3 Optional in Query`` () =
     let events = [| b; c; d; e;|]
     runEventsExpected(state, events, StateSummary.NOT_STARTED)
 
-
-[<Fact>]
-let ``Test Not in Query`` () =
-
-    (* Event Clause and Seq *)
-    let query_seq_list = [EventParam(epA); Optional(epB); Not(epC); Optional(epD); EventParam(epE)]
-    let query_seq = Seq( query_seq_list )
+let createQuery(seq: List<SubSeqExpr>): Query = 
+    let query_seq = Seq( seq )
     let event = Event query_seq
 
     let query: Query = {
@@ -300,13 +295,37 @@ let ``Test Not in Query`` () =
         where = None
         within = None
     }
+    query
 
-    let state = toDFA(query)
+let stateFor(seq: List<SubSeqExpr>): State = 
+    let query = createQuery(seq)
+    toDFA(query)
 
+[<Fact>]
+let ``Test Not in Query`` () =
+
+    (* Event Clause and Seq *)
+    let query_seq_list = [EventParam(epA); Optional(epB); Not(epC); Optional(epD); EventParam(epE)]
+    let state = stateFor(query_seq_list)
 
     let events = [|a; b; c; d; e;|] 
     runEventsExpected(state, events, StateSummary.FAILURE)
 
     let events = [|a; b; d; e;|] 
     runEventsExpected(state, events, StateSummary.SUCCESS)
+
+    // serializeState(state)
+
+    let events = [|a; b; e;|] 
+    runEventsExpected(state, events, StateSummary.SUCCESS)
+
+    let events = [|a; d; e;|] 
+    runEventsExpected(state, events, StateSummary.SUCCESS)
+
+    let events = [|a; e;|] 
+    runEventsExpected(state, events, StateSummary.SUCCESS)
+
+    let events = [|a; c; e;|] 
+    runEventsExpected(state, events, StateSummary.FAILURE)
+
 
