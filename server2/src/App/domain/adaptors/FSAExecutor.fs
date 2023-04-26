@@ -9,13 +9,7 @@ open FSharp.Collections
 open System.Threading.Channels
 open System.Threading
 
-(*
-    Options:
-    * Fresh implementation in server model
-    * Fresh implementation in in-process model (ala SQLite)
-    * Wrapper/UI around Flink implementation
-    * Wrapper/UI around other DB
-*)
+
 
 type State = 
     {
@@ -53,48 +47,24 @@ let makeSuccessState et =
     }
     (s.event_type.name, s)
 
-// let makeState(ep): State =
-//     let s = 
-//         {
-//             event_param = ep;
-//             event_type = ep.event_type;
-//             starting = if ep.order = 0 then true else false;
-//             ending = false;
-//             failed = false;
-//             success = [];
-//             failure = [];
-//         }
-
-// let rec subToState(lst: List<EventParam>): List<State> =
-
-//     match lst with
-//         | head :: [] -> 
-//             let s = {
-//                 success_state = true;
-//                 failure_state = false;
-//                 transitions = Map.empty
-//             }
-//             [s]
-//         | head :: tail -> 
-//             let states = subToState(tail)
-//             let next = List.head states
-//             let s = {
-//                 success_state = false;
-//                 failure_state = false;
-//                 transitions = Map.empty
-//             }
-//             s :: states
 
 let onlyEventParam(sub: SubSeqExpr): EventParam =
     match sub with
         | EventParam(ep) -> ep
         | Not(ep) -> ep
 
-let rec makeFSM(s: List<SubSeqExpr>): State =
+(* 
+    Assumptions/Pre-conditions:
+        The first and last SubSeqExpr is not Optional or Not events.
+        Argument is list of at least 2 events
+        Not events cause the SSC to move to failure state
+            since this function assumes that there are no WHERE conditions and no WITHIN conditions
+*)
+let rec makeFSM(s: List<SubSeqExpr>): (State * List<State>) =
     match s with 
         | head :: [] ->
-            match head with
-                | EventParam(p) | Not(p) | Optional(p) -> 
+            let current = match head with
+                | EventParam(p) -> 
                     {
                         event_param = Some p;
                         event_type = p.event_type;
@@ -102,45 +72,91 @@ let rec makeFSM(s: List<SubSeqExpr>): State =
                         failure_state = false;
                         transitions = Map.empty;
                     }
+                | Not(p) | Optional(p) ->
+                    raise (System.ArgumentException($"Event parameter {head} must be EventParam() since this FSA construction function assumes that the query has no where or within clause"))
+            ( current, [] )
+
         | head :: second :: [] ->
-            let next = makeFSM( second::[] )
+            let (next, neg_states) = makeFSM( second::[] )
             
+            // This shouldn't happen if the precondition is followed, but
+            // if second is not or optional, then head should be a success state
+            // because it may be the final event before sequence completion.
+            match second with 
+                | Not(p) | Optional(p) -> 
+                    raise (System.ArgumentException($"Event parameter {second} must be EventParam() since this FSA construction function assumes that the query has no where or within clause"))
+                | _ -> ()
+
             match head with 
-                | EventParam(p) | Not(p) | Optional(p) ->
-                    {
+                | EventParam(p) | Optional(p) ->
+                    let neg_seq = seq {for state in neg_states do yield (state.event_type.name, state)}
+                    let immediate_next = seq { (next.event_type.name, next) }
+                    let current = {
                         event_param = Some p;
                         event_type = p.event_type;
                         success_state = false;
                         failure_state = false;
-                        transitions = Map( seq { (next.event_type.name, next) } );
+                        transitions = Map(  (Seq.append immediate_next neg_seq) );
                     }
+                    (current,  []) 
+                | Not(p) -> 
+                    let current = {
+                        event_param = Some p;
+                        event_type = p.event_type;
+                        success_state = false;
+                        failure_state = true;
+                        transitions = Map( Seq.empty );
+                    }
+                    (next,  current :: neg_states) 
         | head :: second :: tail ->
-            let next = makeFSM( second::tail )
+            let (next, neg_states) = makeFSM( second::tail )
             
             let transitions = 
                 match second with 
-                    | EventParam(_) | Not(_) ->
-                        Map( seq { (next.event_type.name, next) } );
-                    | Optional(_) ->
-                        let after = seq { for i in next.transitions.Values do yield (i.event_type.name, i) }
-                        let now = seq { (next.event_type.name, next) }
-                        let transitions = Seq.append now after
-                        Map( transitions );
+                    | EventParam(_)  ->
+                        // let neg_seq = seq {for state in neg_states do yield (state.event_type.name, state)}
+                        let immediate_next = seq { (next.event_type.name, next) }
+                        immediate_next
+                    | Optional(p) ->
+                        // Include the transition of the next one since we may skip the next and go to the one after.
+                        let after_next = seq { for i in next.transitions.Values do yield (i.event_type.name, i) }
+                        let immediate_next = seq { (next.event_type.name, next) }
+                        let all = Seq.append immediate_next after_next
+                        all;
+
+                    | Not(p) -> 
+                        (* Adds a transition to the Not()'d event and to the positive event after the Not() *)
+                        // let neg_seq = seq {for state in neg_states do yield (state.event_type.name, state)}
+                        let immediate_next = seq { (next.event_type.name, next) }
+                        immediate_next
+                        
             
-            match head with 
-                | EventParam(p) | Not(p) | Optional(p) ->
-                    {
+            match head with
+                | EventParam(p) | Optional(p) ->
+                    let neg_seq = seq {for state in neg_states do yield (state.event_type.name, state)}
+                    let current = {
                         event_param = Some p;
                         event_type = p.event_type;
                         success_state = false;
                         failure_state = false;
-                        transitions = transitions;
+                        transitions = Map( Seq.append transitions neg_seq );
                     }
+                    (current, [])
+                | Not(p) -> 
+                    let current = {
+                        event_param = Some p;
+                        event_type = p.event_type;
+                        success_state = false;
+                        failure_state = true;
+                        transitions = Map( Seq.empty );
+                    }
+                    (next,  current :: neg_states) 
+
+
+
 
 let toDFA(query: Query): State = 
-    // let EventClause(seq_expr: SeqExpr) = query.event_clause 
-
-    let states: State = match query.event_clause with
+    match query.event_clause with
         | Event(SingletonSeq(EventParam(param))) -> 
             let s = {
                 event_param = Some param;
@@ -169,181 +185,9 @@ let toDFA(query: Query): State =
             start
             
         | Event(Seq(subs)) ->
-            let state = makeFSM(List.ofSeq subs)
+            let (state, _) = makeFSM(List.ofSeq subs)
             startState state
-            (*
-            match subs |> Array.ofSeq with
 
-                | [| f; s  |] ->
-                    let second = match s with 
-                        | EventParam(p) ->
-                            {
-                                event_param = Some p;
-                                event_type = p.event_type;    
-                                success_state = true;
-                                failure_state = false;
-                                transitions = Map.empty;
-                            }
-                        | Not(p) ->
-                            {
-                                event_param = Some p;
-                                event_type = p.event_type;    
-                                success_state = true;
-                                failure_state = false;
-                                transitions = Map.empty;
-                            }
-                    let first = match f with 
-                        | EventParam(p) ->
-                            {
-                                event_param = Some p;
-                                event_type = p.event_type;    
-                                success_state = false;
-                                failure_state = false;
-                                transitions = Map(seq {(second.event_type.name, second)})
-                            }
-                        | Not(p) ->
-                            {
-                                event_param = Some p;
-                                event_type = p.event_type;    
-                                success_state = false;
-                                failure_state = false;
-                                transitions = Map.empty
-                            }
-                    
-                    startState(first)
-                | [| EventParam(f); EventParam(s);  EventParam(t)|] ->
-                    let third =                        
-                        {
-                            event_param = Some t;
-                            event_type = t.event_type;
-                            success_state = true;
-                            failure_state = false;
-                            transitions = Map.empty
-                        }
-                        
-
-                    let second = 
-                        {
-                            event_param = Some s;
-                            event_type = s.event_type;    
-                            success_state = false;
-                            failure_state = false;
-                            transitions = Map(seq { (third.event_type.name, third) })
-                        }
-
-                    let first =
-                        {
-                            event_param = Some f;
-                            event_type = f.event_type;    
-                            success_state = false;
-                            failure_state = false;
-                            transitions = Map(seq { (second.event_type.name, second) });
-                        }
-                    
-                    startState(first)
-                
-                | [|EventParam(f); Not(s); EventParam(t)|] -> 
-                    let third =                        
-                        {
-                            event_param = Some t;
-                            event_type = t.event_type;
-                            success_state = true;
-                            failure_state = false;
-                            transitions = Map.empty
-                        }
-                        
-
-                    let second = 
-                        {
-                            event_param = Some s;
-                            event_type = s.event_type;    
-                            success_state = false;
-                            failure_state = false;
-                            transitions = Map(seq { (third.event_type.name, third) })
-                        }
-
-                    let first =
-                        {
-                            event_param = Some f;
-                            event_type = f.event_type;    
-                            success_state = false;
-                            failure_state = false;
-                            transitions = Map(seq { (second.event_type.name, second) });
-                        }
-                    
-                    startState(first)
-
-                | [|EventParam(f); Optional(s); EventParam(t)|] -> 
-                    let third =                        
-                        {
-                            event_param = Some t;
-                            event_type = t.event_type;
-                            success_state = true;
-                            failure_state = false;
-                            transitions = Map.empty
-                        }
-                        
-
-                    let second = 
-                        {
-                            event_param = Some s;
-                            event_type = s.event_type;    
-                            success_state = false;
-                            failure_state = false;
-                            transitions = Map(seq { (third.event_type.name, third) })
-                        }
-
-                    let first =
-                        {
-                            event_param = Some f;
-                            event_type = f.event_type;    
-                            success_state = false;
-                            failure_state = false;
-                            transitions = Map(seq { (second.event_type.name, second); (third.event_type.name, third) });
-                        }
-                    
-                    startState(first)
-
-                | [|EventParam(f); Optional(s); Optional(t); EventParam(fo)|] -> 
-                    let fourth =                        
-                        {
-                            event_param = Some fo;
-                            event_type = fo.event_type;
-                            success_state = true;
-                            failure_state = false;
-                            transitions = Map.empty
-                        }
-
-                    let third =                        
-                        {
-                            event_param = Some t;
-                            event_type = t.event_type;
-                            success_state = true;
-                            failure_state = false;
-                            transitions = Map(seq { (fourth.event_type.name, fourth) })
-                        }
-                        
-
-                    let second = 
-                        {
-                            event_param = Some s;
-                            event_type = s.event_type;    
-                            success_state = false;
-                            failure_state = false;
-                            transitions = Map(seq { (third.event_type.name, third); (fourth.event_type.name, fourth) })
-                        }
-
-                    let first =
-                        {
-                            event_param = Some f;
-                            event_type = f.event_type;    
-                            success_state = false;
-                            failure_state = false;
-                            transitions = Map(seq { (second.event_type.name, second); (third.event_type.name, third); (fourth.event_type.name, fourth); });
-                        }
-                    
-                    startState(first)
-            *)
         | _ -> 
             {
                 event_param = None;
@@ -353,7 +197,6 @@ let toDFA(query: Query): State =
                 transitions = Map.empty
             }
     
-    states
 
 let nextState(event: EventBinding, current: State * StateSummary * EventBinding[], all: State): State * StateSummary * EventBinding[] =
 

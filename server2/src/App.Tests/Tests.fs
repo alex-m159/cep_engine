@@ -20,7 +20,94 @@ let ``Fail every time`` () =
     Assert.True(true)
 
 
+(* Fields *)
+let fields = [StringField("field1"); IntField("field2")]
 
+(* Event Type Definitions *)
+let etA = {
+    name = "A";
+    fields = fields;
+}
+
+let etB = {
+    name = "B";
+    fields = fields;
+}
+
+let etC = {
+    name = "C";
+    fields = fields;
+}
+
+let etD = {
+    name = "D";
+    fields = fields;
+}
+
+let etE = {
+    name = "E";
+    fields = fields;
+}
+
+
+(* Event Parameters *)
+let epA = {
+    event_type = etA;
+    param_name = "a";
+    order = 0;
+}
+
+let epB = {
+    event_type = etB;
+    param_name = "b";
+    order = 1;
+}
+
+let epC = {
+    event_type = etC;
+    param_name = "c";
+    order = 2;
+}
+
+let epD = {
+    event_type = etD;
+    param_name = "d";
+    order = 3;
+}
+
+let epE = {
+    event_type = etE;
+    param_name = "e";
+    order = 4;
+}
+
+
+(* Event and Field Bindings  - Runtime Events *)
+let bound_fields = [BoundStringField("field1", "text"); BoundIntFIeld("field2", 1)]
+let a = {
+    param = epA;
+    bound_fields = bound_fields;
+}
+
+let b = {
+    param = epB;
+    bound_fields = bound_fields;
+}
+
+let c = {
+    param = epC;
+    bound_fields = bound_fields;
+}
+
+let d = {
+    param = epD;
+    bound_fields = bound_fields;
+}
+
+let e = {
+    param = epE;
+    bound_fields = bound_fields;
+}
 
 
 let getSummary(op: State * StateSummary * EventBinding[]): string =
@@ -47,50 +134,22 @@ let getEvents(op: State * StateSummary * EventBinding[]): string =
 let getString(op: State * StateSummary * EventBinding[]): string =
     $"{getState(op)} - {getSummary(op)} - {getEvents(op)}"
 
+let serializeState state = 
+    let options =
+        JsonFSharpOptions.Default()
+            // Add any .WithXXX() calls here to customize the format
+            .ToJsonSerializerOptions()
+
+    JsonFSharpOptions.Default()
+        .AddToJsonSerializerOptions(options)
+
+    printf $"{JsonSerializer.Serialize(state, options)}"
+
+
 [<Fact>]
 let ``Test Finite State SSC`` () =
-
-    (* Fields *)
-    let fields = [StringField("field1"); IntField("field2")]
-
-    (* Event Type Definitions *)
-    let etA = {
-        name = "A";
-        fields = fields;
-    }
-
-    let etB = {
-        name = "B";
-        fields = fields;
-    }
-
-    let etC = {
-        name = "C";
-        fields = fields;
-    }
-
-
-    (* Event Parameters *)
-    let epA = {
-        event_type = etA;
-        param_name = "a";
-        order = 0;
-    }
-    
-    let epB = {
-        event_type = etB;
-        param_name = "b";
-        order = 1;
-    }
-    
-    let epC = {
-        event_type = etC;
-        param_name = "c";
-        order = 2;
-    }
-
+  
     (* Event Clause and Seq *)
-
     let query_seq = Seq( [EventParam(epA); EventParam(epB); EventParam(epC);] )
     let event = Event query_seq
 
@@ -103,42 +162,6 @@ let ``Test Finite State SSC`` () =
 
     let state = toDFA(query)
 
-    // 1. Either create the serializer options from the F# options...
-    let options =
-        JsonFSharpOptions.Default()
-            // Add any .WithXXX() calls here to customize the format
-            .ToJsonSerializerOptions()
-
-    // 2. ... Or add the F# options to existing serializer options.
-    JsonFSharpOptions.Default()
-        // Add any .WithXXX() calls here to customize the format
-        .AddToJsonSerializerOptions(options)
-
-    // 3. Either way, pass the options to Serialize/Deserialize.
-    // JsonSerializer.Serialize({| x = "Hello"; y = "world!" |}, options)
-    // --> {"x":"Hello","y":"world!"}
-
-    // printfn "Generated DFA"
-    // let json = JsonSerializer.Serialize(states, options)
-    
-    
-
-    (* Event and Field Bindings  - Runtime Events *)
-    let bound_fields = [BoundStringField("field1", "text"); BoundIntFIeld("field2", 1)]
-    let a = {
-        param = epA;
-        bound_fields = bound_fields;
-    }
-
-    let b = {
-        param = epB;
-        bound_fields = bound_fields;
-    }
-
-    let c = {
-        param = epC;
-        bound_fields = bound_fields;
-    }
 
     let mutable current: State * StateSummary * EventBinding[] = (state, NOT_STARTED, [||])
     let events = [|a; b; c;|] 
@@ -149,63 +172,38 @@ let ``Test Finite State SSC`` () =
     let res = summary = SUCCESS
     Assert.True(res)
 
-    // Assert.True(true)
+
+let runEvents(state: State, events: EventBinding[]): unit  =
+    let mutable current: State * StateSummary * EventBinding[] = (state, NOT_STARTED, [||])
+    
+    for e in events do
+        let (next, someevents) = FSMSSC.someResult(e, current, state)
+        current <- next
+        
+    let (state, summary, events) = current
+    // let s = events |> Array.map(fun (ev) -> $"{ev.param.event_type.name} {ev.param.param_name}") |> fun(a) -> String.Join(",", a)
+    // printfn $"{summary} - [{s}]"
+    let res = summary = SUCCESS
+    Assert.True(res)
+
+let runEventsExpected(state: State, events: EventBinding[], expected: StateSummary): unit  =
+    let mutable current: State * StateSummary * EventBinding[] = (state, NOT_STARTED, [||])
+    
+    for e in events do
+        let (next, someevents) = FSMSSC.someResult(e, current, state)
+        current <- next
+        
+    let (state, summary, events) = current
+    // let s = events |> Array.map(fun (ev) -> $"{ev.param.event_type.name} {ev.param.param_name}") |> fun(a) -> String.Join(",", a)
+    // printfn $"{summary} - [{s}]"
+    let res = summary = expected
+    Assert.True(res)
+
 
 [<Fact>]
 let ``Test Optional in Query`` () =
 
-    (* Fields *)
-    let fields = [StringField("field1"); IntField("field2")]
-
-    (* Event Type Definitions *)
-    let etA = {
-        name = "A";
-        fields = fields;
-    }
-
-    let etB = {
-        name = "B";
-        fields = fields;
-    }
-
-    let etC = {
-        name = "C";
-        fields = fields;
-    }
-
-    let etD = {
-        name = "D";
-        fields = fields;
-    }
-
-
-    (* Event Parameters *)
-    let epA = {
-        event_type = etA;
-        param_name = "a";
-        order = 0;
-    }
-    
-    let epB = {
-        event_type = etB;
-        param_name = "b";
-        order = 1;
-    }
-    
-    let epC = {
-        event_type = etC;
-        param_name = "c";
-        order = 2;
-    }
-
-    let epD = {
-        event_type = etD;
-        param_name = "d";
-        order = 3;
-    }
-
     (* Event Clause and Seq *)
-
     let query_seq_list = [EventParam(epA); Optional(epB); Optional(epC); EventParam(epD)]
     let query_seq = Seq( query_seq_list )
     let event = Event query_seq
@@ -218,59 +216,97 @@ let ``Test Optional in Query`` () =
     }
 
     let state = toDFA(query)
-
-    // 1. Either create the serializer options from the F# options...
-    let options =
-        JsonFSharpOptions.Default()
-            // Add any .WithXXX() calls here to customize the format
-            .ToJsonSerializerOptions()
-
-    // 2. ... Or add the F# options to existing serializer options.
-    JsonFSharpOptions.Default()
-        // Add any .WithXXX() calls here to customize the format
-        .AddToJsonSerializerOptions(options)
-
-    // 3. Either way, pass the options to Serialize/Deserialize.
-    // JsonSerializer.Serialize({| x = "Hello"; y = "world!" |}, options)
-    // --> {"x":"Hello","y":"world!"}
-
-    // printfn "Generated DFA"
-    let json = JsonSerializer.Serialize(state, options)
-    printfn $"makeFSM:"
-    // printfn $"{json}"
-    
-
-    (* Event and Field Bindings  - Runtime Events *)
-    let bound_fields = [BoundStringField("field1", "text"); BoundIntFIeld("field2", 1)]
-    let a = {
-        param = epA;
-        bound_fields = bound_fields;
-    }
-
-    let b = {
-        param = epB;
-        bound_fields = bound_fields;
-    }
-
-    let c = {
-        param = epC;
-        bound_fields = bound_fields;
-    }
-
-    let d = {
-        param = epD;
-        bound_fields = bound_fields;
-    }
-
-    let mutable current: State * StateSummary * EventBinding[] = (state, NOT_STARTED, [||])
     let events = [|a; b; c; d;|] 
-    for e in events do
-        let (next, someevents) = FSMSSC.someResult(e, current, state)
-        current <- next
-                
-        
-    let (state, summary, events) = current
-    let s = events |> Array.map(fun (ev) -> $"{ev.param.event_type.name} {ev.param.param_name}") |> fun(a) -> String.Join(",", a)
-    printfn $"{summary} - [{s}]"
-    let res = summary = SUCCESS
-    Assert.True(res)
+    
+    runEvents(state, events)
+
+    let events = [|a; b; d;|] 
+    runEvents(state, events)
+
+    let events = [|a; c; d;|] 
+    runEvents(state, events)
+
+    let events = [|a; d;|] 
+    runEvents(state, events)
+
+[<Fact>]
+let ``Test 3 Optional in Query`` () =
+
+    (* Event Clause and Seq *)
+    let query_seq_list = [EventParam(epA); Optional(epB); Optional(epC); Optional(epD); EventParam(epE)]
+    let query_seq = Seq( query_seq_list )
+    let event = Event query_seq
+
+    let query: Query = {
+        event_types = [ etA; etB; etC; etD; etE;];
+        event_clause = event;
+        where = None
+        within = None
+    }
+
+    let state = toDFA(query)
+    let events = [|a; b; c; d; e;|] 
+    
+    runEvents(state, events)
+
+    let events = [|a; c; d; e;|] 
+    runEvents(state, events)
+
+    let events = [|a; b; d; e;|] 
+    runEvents(state, events)
+
+    let events = [|a; b; c; e;|] 
+    runEvents(state, events)
+
+    let events = [|a; b; e;|] 
+    runEvents(state, events)
+
+    let events = [|a; c; e;|] 
+    runEvents(state, events)
+
+    let events = [|a; d; e;|] 
+    runEvents(state, events)
+
+    let events = [|a; e;|]
+    runEvents(state, events)
+
+    let events = [|a;|]
+    runEventsExpected(state, events, StateSummary.ACCEPTING_EVENTS)
+    
+    let events = [|a; b;|]
+    runEventsExpected(state, events, StateSummary.ACCEPTING_EVENTS)
+    
+    let events = [|a; b; c;|]
+    runEventsExpected(state, events, StateSummary.ACCEPTING_EVENTS)
+    
+    let events = [|a; b; c; d;|]
+    runEventsExpected(state, events, StateSummary.ACCEPTING_EVENTS)
+
+    let events = [| b; c; d; e;|]
+    runEventsExpected(state, events, StateSummary.NOT_STARTED)
+
+
+[<Fact>]
+let ``Test Not in Query`` () =
+
+    (* Event Clause and Seq *)
+    let query_seq_list = [EventParam(epA); Optional(epB); Not(epC); Optional(epD); EventParam(epE)]
+    let query_seq = Seq( query_seq_list )
+    let event = Event query_seq
+
+    let query: Query = {
+        event_types = [ etA; etB; etC; etD; etE;];
+        event_clause = event;
+        where = None
+        within = None
+    }
+
+    let state = toDFA(query)
+
+
+    let events = [|a; b; c; d; e;|] 
+    runEventsExpected(state, events, StateSummary.FAILURE)
+
+    let events = [|a; b; d; e;|] 
+    runEventsExpected(state, events, StateSummary.SUCCESS)
+
