@@ -49,6 +49,16 @@ let etE = {
     fields = fields;
 }
 
+let etF = {
+    name = "F";
+    fields = fields;
+}
+
+let etG = {
+    name = "G";
+    fields = fields;
+}
+
 
 (* Event Parameters *)
 let epA = {
@@ -81,6 +91,18 @@ let epE = {
     order = 4;
 }
 
+let epF = {
+    event_type = etF;
+    param_name = "f";
+    order = 5;
+}
+
+let epG = {
+    event_type = etG;
+    param_name = "g";
+    order = 6;
+}
+
 
 (* Event and Field Bindings  - Runtime Events *)
 let bound_fields = [BoundStringField("field1", "text"); BoundIntFIeld("field2", 1)]
@@ -106,6 +128,16 @@ let d = {
 
 let e = {
     param = epE;
+    bound_fields = bound_fields;
+}
+
+let f = {
+    param = epF;
+    bound_fields = bound_fields;
+}
+
+let g = {
+    param = epG;
     bound_fields = bound_fields;
 }
 
@@ -301,31 +333,331 @@ let stateFor(seq: List<SubSeqExpr>): State =
     let query = createQuery(seq)
     toDFA(query)
 
+
+let runSuccess(s: List<SubSeqExpr>, ev: EventBinding[]): unit = 
+    let state = stateFor(s)
+    runEventsExpected(state, ev, StateSummary.SUCCESS)
+
+let runFailure(s: List<SubSeqExpr>, ev: EventBinding[]): unit = 
+    let state = stateFor(s)
+    runEventsExpected(state, ev, StateSummary.FAILURE)
+
+let runIncomplete(s: List<SubSeqExpr>, ev: EventBinding[]): unit =
+    let state = stateFor(s)
+    runEventsExpected(state, ev, StateSummary.ACCEPTING_EVENTS)
+
 [<Fact>]
 let ``Test Not in Query`` () =
 
     (* Event Clause and Seq *)
     let query_seq_list = [EventParam(epA); Optional(epB); Not(epC); Optional(epD); EventParam(epE)]
-    let state = stateFor(query_seq_list)
 
     let events = [|a; b; c; d; e;|] 
-    runEventsExpected(state, events, StateSummary.FAILURE)
+    runFailure(query_seq_list, events)
 
     let events = [|a; b; d; e;|] 
-    runEventsExpected(state, events, StateSummary.SUCCESS)
-
-    // serializeState(state)
+    runSuccess(query_seq_list, events)
 
     let events = [|a; b; e;|] 
-    runEventsExpected(state, events, StateSummary.SUCCESS)
+    runSuccess(query_seq_list, events)
 
     let events = [|a; d; e;|] 
-    runEventsExpected(state, events, StateSummary.SUCCESS)
+    runSuccess(query_seq_list, events)
 
     let events = [|a; e;|] 
-    runEventsExpected(state, events, StateSummary.SUCCESS)
+    runSuccess(query_seq_list, events)
 
     let events = [|a; c; e;|] 
-    runEventsExpected(state, events, StateSummary.FAILURE)
+    runFailure(query_seq_list, events)
+
+[<Fact>]
+let ``Test Not() and Optional() in Query`` () =
+
+    let s = [EventParam(epA); Not(epB); EventParam(epC);]
+    let ev = [| a; b; c;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b;|]
+    runFailure(s, ev)
+
+    let ev = [| a; c;|]
+    runSuccess(s, ev)
+
+    let ev = [| a;|]
+    runIncomplete(s, ev)
+
+    let s = [EventParam(epA); Not(epB); Not(epC); EventParam(epD)]
+    let ev = [| a; b; c; d;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b;|]
+    runFailure(s, ev)
+
+    let ev = [| a; c;|]
+    runFailure(s, ev)
+
+    let ev = [| a; |]
+    runIncomplete(s, ev)
+
+    let ev = [| a; d;|]
+    runSuccess(s, ev)
 
 
+
+    let s = [EventParam(epA); Not(epB); EventParam(epC); Not(epD); EventParam(epE)]
+    let ev = [| a; b; c; d; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c; d;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b;|]
+    runFailure(s, ev)
+
+    let ev = [| a; c; d; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; c; d;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c;|]
+    runFailure(s, ev)
+
+    let ev = [| a; c;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; c; e;|]
+    runSuccess(s, ev)
+
+
+
+
+
+    let s = [EventParam(epA); Not(epB); Not(epC); EventParam(epD); Not(epE); EventParam(epF)]
+    let ev = [| a; b; c; d; e; f;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c; d; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c; d;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c;|]
+    runFailure(s, ev)
+
+    let ev = [| a; c; d; f;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; d; f;|]
+    runFailure(s, ev)
+
+    let ev = [| a; d; e; f;|]
+    runFailure(s, ev)
+
+    let ev = [| a; d; |]
+    runIncomplete(s, ev)
+
+    let ev = [| a; d; f;|]
+    runSuccess(s, ev)
+
+
+    let s = [EventParam(epA); Optional(epB); Not(epC); Not(epD); EventParam(epE);]
+    let ev = [| a; b; c; d; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; d; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; c; d; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; d; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; c; d;|]
+    runFailure(s, ev)
+
+    let ev = [| a; d; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; c; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; d;|]
+    runFailure(s, ev)
+
+    let ev = [| a; c;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; b; e;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; e;|]
+    runSuccess(s, ev)
+
+
+
+    let s = [EventParam(epA); Not(epB); Optional(epC); EventParam(epD);]
+    let ev = [| a; b; c; d;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; d;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b;|]
+    runFailure(s, ev)
+
+    let ev = [| a; c;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; c; e;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; c; d;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; d;|]
+    runSuccess(s, ev)
+
+
+
+
+    let s = [EventParam(epA); Optional(epB); EventParam(epC); Optional(epD); Optional(epE); Optional(epF); EventParam(epG);]
+    let ev = [| a; b; c; d; e; f; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; b; c; d; e; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; b; c; d; f; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; b; c; e; f; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; c; d; e; f; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; b; c; d; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; b; c; f; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; b; c; e; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; c; d; f; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; c; d; e; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; c; d; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; c; e; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; c; f; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; b; c; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; c; g;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; c;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; g;|]
+    runIncomplete(s, ev)
+
+    
+    let s = [EventParam(epA); Optional(epB); Not(epC); Optional(epD); EventParam(epE);]
+    let ev = [| a; b; c; d; e;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c; d;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; c;|]
+    runFailure(s, ev)
+
+    let ev = [| a; b; d;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; b;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; d;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; b; d; e;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; e;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; b; e;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; d; e;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; e;|]
+    runSuccess(s, ev)
+
+
+    let s = [EventParam(epA); Optional(epB); EventParam(epC); Optional(epD); EventParam(epE);]
+    let ev = [| a; b; c; d; e;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; b; c; e;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; c; d; e;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; c; e;|]
+    runSuccess(s, ev)
+
+    let ev = [| a; b; c; d;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; b; c;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; c; d;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; b; d; e;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; b; e;|]
+    runIncomplete(s, ev)
+
+    let ev = [| a; d; e;|]
+    runIncomplete(s, ev)
+
+    
