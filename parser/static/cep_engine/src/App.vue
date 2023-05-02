@@ -232,8 +232,9 @@ function menuClick(e: Event) {
         <a href="#collapsableMenu" 
           class="d-flex align-items-center text-white text-decoration-none mt-2" 
           data-bs-toggle="collapse" data-bs-target="#collapsableMenu" aria-expanded="false">
-          <img src="https://github.com/mdo.png" alt="" class="rounded-circle me-2" width="32" height="32">
-          <strong>mdo</strong>
+          <!-- <img src="https://github.com/mdo.png" alt="" class="rounded-circle me-2" width="32" height="32"> -->
+          <i class="bi bi-person-circle me-2" style="font-size: 1.2;"></i>
+          <strong>username</strong>
         </a>
       </div>
       <div class="position-fixed d-lg-none">
