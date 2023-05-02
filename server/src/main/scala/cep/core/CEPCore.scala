@@ -41,7 +41,7 @@ package object core {
   }
 
   // Query constructs
-  case class EventTypeDef(event_name: String, field_names: Vector[FieldName])
+  case class EventTypeDef(event_name: String, field_names: Vector[(FieldName, String)])
   case class SeqComponent(event_type: String, name: String, negated: Boolean, order: Byte)
   case class SequenceDef(events: Vector[SeqComponent])
 

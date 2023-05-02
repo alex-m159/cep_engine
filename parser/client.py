@@ -50,6 +50,7 @@ def get_ast(query_string):
 def get_all_queries():
     resp = get('http://localhost:8000/query')
     parsed = json.loads(resp.text)
+    print(f"Fetched query: \n{parsed}")
     return parsed['queries']
 
 
@@ -349,12 +350,19 @@ def show_query(qid):
 
 @app.route('/query', methods=['GET'])
 def all_queries():
-    queries = get_all_queries()
-    pretty = [{'query_string': json_to_pretty(query_ast), 'query_id': query_id} for query_id, query_ast in queries.items()]
-    # for p in pretty:
-    #     print(p)
-    print("Returning all queries")
-    return jsonify({"queries": pretty})
+    try:
+        print(f"Getting all queryes")        
+        queries = get_all_queries()
+        print(f"Returned:\n{queries}")
+        print(f"Creating comprehension")
+        
+        pretty = [{'query_string': json_to_pretty(query_ast), 'query_id': query_id} for (query_id, query_ast) in queries.items()]
+        # for p in pretty:
+        #     print(p)
+        print("Returning all queries")
+        return jsonify({"queries": pretty})
+    except e:
+        print(f"{str(e)}")
 
 
 @app.route('/query', methods=['POST', 'PUT'])
@@ -365,6 +373,7 @@ def query():
     # query_raw = words
     try:
         if query_string:
+            print(f"Query Being Submitted: {query_string}")
             query_id = submit_query(query_string)
             if query_id:
                 return jsonify({'ok': 1, 'query_id': query_id})
@@ -394,11 +403,13 @@ def query_ast():
     if 'query' in request.json:
         query_string = request.json['query']
         ast = get_ast(query_string)
+        print(f"Query AST:\n{ast}")
         return jsonify({'ok': 1, 'ast': ast})
     elif 'query_id' in request.json:
         qid = request.json['query_id']
         queries = get_all_queries()
         print(str(qid))
+        print(f"Query AST:")
         print(queries[str(qid)])
         if str(qid) in queries:
             ast = queries[str(qid)]

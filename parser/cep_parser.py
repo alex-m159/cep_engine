@@ -564,7 +564,9 @@ def json_to_pretty(json):
     for et in json['event_types']:
         name = et['name']
         fields = et['fields']
-        pretty_types += f"type {name}({','.join(fields)})\n"
+        print(f"FIELDS: {fields}")
+        typed_fields = map(lambda tup: f"{tup[0]}: {tup[1]}", fields)
+        pretty_types += f"type {name}({','.join(typed_fields)})\n"
 
     es = json['query']["event_clause"]['event_seq']
 
@@ -613,10 +615,10 @@ def json_to_pretty(json):
 
 
 words = """
-type A(id: INTEGER, field1: STRING, field2: STRING)
-type B(id: INTEGER, field1: STRING, field2: STRING)
-type C(id: INTEGER, field1: STRING, field2: STRING)
-type D(id: INTEGER, field1: STRING, field2: STRING)
+type A(id: integer, field1: string, field2: string)
+type B(id: integer, field1: string, field2: string)
+type C(id: integer, field1: string, field2: string)
+type D(id: integer, field1: string, field2: string)
    
 EVENT SEQ(A a, !(C c),  D d)
 WHERE a.field1 = 100 AND d.field1 = a.field1

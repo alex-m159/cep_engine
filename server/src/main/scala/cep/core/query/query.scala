@@ -9,7 +9,7 @@ import scala.util.Try
   * should go into the cep.core package.
   */
 package object query {
-  case class EventType(name: String, fields: List[String])
+  case class EventType(name: String, fields: List[(String, String)])
   // use a byte since it's really small and we don't need a lot of numbers
   case class EventParam(event_type: String, name: String, negated: Boolean, order: Byte)
 
@@ -41,11 +41,13 @@ package object query {
     while(type_defs.hasNext) {
       val td = type_defs.next()
       val name = td.get("name").asText()
-      val _fields = mutable.ArrayBuffer[String]()
+      val _fields = mutable.ArrayBuffer[(String, String)]()
       val fields_iter = td.get("fields").elements()
       while(fields_iter.hasNext) {
-        val field = fields_iter.next()
-        _fields.append(field.asText())
+        val field = fields_iter.next().elements()
+        val field_name = field.next().asText()
+        val field_type =  field.next().asText()
+        _fields.append((field_name, field_type))
       }
       val fields = _fields.toList
       _types.append( EventType(name, fields) )

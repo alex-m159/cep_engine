@@ -105,7 +105,9 @@ function getCode() {
 
 function getEditorValue() {
     if(query_editor !== null) {
-        return query_editor.getValue()
+        let query_string = query_editor.getValue()
+        console.log(`Query String: ${query_string}`)
+        return query_string
     }
     return ""
 }
