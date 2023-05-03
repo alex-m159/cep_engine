@@ -10,7 +10,7 @@
 
 <hr>
 
-Combine (previously "Event Oven") is a query interpreter based on the language and query engine described in [High-Performance Complex Event Processing Over Streams](http://cs.brown.edu/courses/cs295-11/2007/complex.pdf). This repo also includes a web interface to interact with the query engine.
+Combine is a query interpreter based on the language and query engine described in [High-Performance Complex Event Processing Over Streams](http://cs.brown.edu/courses/cs295-11/2007/complex.pdf). This repo also includes a web interface to interact with the query engine.
 
 The query language allows users to define a set of event types and a sequence or pattern of those events. The query engine will take the query and will start reading from the input stream; once it find a series of events that match the given pattern and pass all constraints, it will produce that as output.
 
