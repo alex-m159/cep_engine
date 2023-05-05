@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import TheWelcome from '@/components/TheWelcome.vue'
 </script>
 
 <template>
   <main>
-    <TheWelcome />
+    This project is a GUI for complex event processing and stream processing. 
+    See more here: <a href="https://github.com/alex-m159/cep_engine">https://github.com/alex-m159/cep_engine</a>
   </main>
 </template>

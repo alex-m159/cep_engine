@@ -6,8 +6,6 @@ import {onMounted, onUnmounted, onBeforeMount, ref, type Ref} from 'vue'
 import {Query, type QueryI, type QueryStoreT} from "../stores/query"
 import {pinia} from "../stores/query"
 import useQueryStore from '../stores/query'
-import QueryListCenterList from '../components/QueryListCenterList.vue'
-import QueryVerticalSideList from '../components/QueryVerticalSideList.vue'
 import {backendIp} from '../config'
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 import call from '@/utils/networking';
