@@ -37,6 +37,8 @@ library.add(faAngleDown)
 library.add(faAngleUp)
 library.add(faClockRotateLeft)
 
+
+
 const app = createApp(App)
 app.component("font-awesome-icon", FontAwesomeIcon)
 
@@ -46,6 +48,8 @@ app.use(Paginate)
 app.component("paginate", Paginate)
 
 import router from './router'
+import QueryListViewVue from './views/QueryListView.vue';
 app.use(router)
+app.component("QueryListView", QueryListViewVue)
 
 app.mount('#app')

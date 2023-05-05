@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
-import HelloWorld from "./components/HelloWorld.vue";
 import {computed} from "vue"
 import {ref, type Ref} from 'vue'
 // <img
@@ -28,7 +27,6 @@ router
 .isReady()
 .then(() => {
   menu_items.map((mi) => {
-    console.log(`ROUTE PATH: ${route.path}`)
     if(route.path.includes(mi.value.menu_id)) {
       mi.value.active = true
     } else if(route.name === mi.value.menu_id) {
@@ -42,7 +40,6 @@ router
 /* This ensures the navbar is synced for all the pages that are navigated to in the future */
 router.afterEach((to, from, failure) => {
   menu_items.map((mi) => {
-    console.log(`ROUTE PATH: ${route.path}`)
     if(route.path.includes(mi.value.menu_id)) {
       mi.value.active = true
     } else if(route.name === mi.value.menu_id) {
@@ -54,7 +51,6 @@ router.afterEach((to, from, failure) => {
 })
 
 function menuClick(e: Event) {
-  console.log(e)
   // @ts-ignore
   let menu_id: string = e.target.id
   menu_items.map((item) => {
@@ -245,7 +241,14 @@ function menuClick(e: Event) {
         </svg>
       </div>
         <div class="container-fluid" style="overflow: scroll;">
-          <RouterView></RouterView>  
+          
+          <RouterView v-slot="{ Component, route }">
+
+            <KeepAlive includes="QueryListView">
+              <component :is="Component" :key="route.name"></component>
+            </KeepAlive>
+          </RouterView>  
+          
         </div>  
     </div>
   </div>

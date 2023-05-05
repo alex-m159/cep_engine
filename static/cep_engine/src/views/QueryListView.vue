@@ -2,13 +2,14 @@
 // import QueryListItem from "../components/QueryListItem.vue"
 import QueryListItem from '@/components/QueryListItem.vue'
 import QueryEditor from '@/components/QueryEditor.vue';
-import {onMounted, onUnmounted, onBeforeMount, ref, type Ref} from 'vue'
+import {onMounted, onUnmounted, onBeforeMount, onActivated, onDeactivated, ref, type Ref} from 'vue'
 import {Query, type QueryI, type QueryStoreT} from "../stores/query"
 import {pinia} from "../stores/query"
 import useQueryStore from '../stores/query'
 import {backendIp} from '../config'
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 import call from '@/utils/networking';
+import { logger } from '@/utils/logging';
 // import Pagination from 'v-pagination-3';
 
 
@@ -21,7 +22,6 @@ const route = useRoute()
 const total_pages = ref(0)
 const current_page = ref(1)
 
-console.log(`PROPS: ${queryStore.queriesAsList.length}`)
 
 function updateQueries(page_number?: number) {
   let qs = queryStore.queriesAsList
@@ -37,18 +37,13 @@ function updateQueries(page_number?: number) {
     let page = page_number
     let start = (page-1)*page_size.value
     let end = (page*page_size.value)
-    console.log(`Start = ${start}, End = ${end}`)
     queries.value = qs.slice(start, end)
-    console.log(`Queries.value = ${queries.value.length}`)
-    router.push(`/queries/list/${page_number}`)
     current_page.value = page_number
   }
 
 }
 
-
 onMounted(() => {
-    console.log("The QueryListView component is mounted")
     call("/query")
     .then((r) => {
 
@@ -58,7 +53,6 @@ onMounted(() => {
         newData.forEach((q) => {
             queryStore.upsertQuery(q)
         })
-        console.log(`PROPS: ${queryStore.queriesAsList.length}`)
         total_pages.value = Math.ceil(queryStore.queriesAsList.length / page_size.value)
         if(route.params.page) {
           //@ts-ignore
@@ -68,11 +62,20 @@ onMounted(() => {
         }
     })
     .catch((err) => {
-        console.log("Error from backend")
-        console.log(err)
+        logger.error(err)
     })
 
 })
+
+onActivated(() => {
+  console.log("ACTIVATED")
+})
+
+onDeactivated(() => {
+  console.log("DEACTIVATED")
+})
+
+
 </script>
 
 <template>

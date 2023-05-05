@@ -1,16 +1,12 @@
 import { reactive } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router'
-//@ts-ignore
-import HomeView from '../views/HomeView.vue'
-// @ts-ignore
-import QueryListView from '../views/QueryListView.vue'
 import type {QueryI, QueryStoreT} from "../stores/query"
 import {pinia} from "../stores/query"
 import useQueryStore from '../stores/query'
 import QueryEditor from '@/components/QueryEditor.vue';
 import QueryPage from '@/components/QueryPage.vue';
-
-
+import QueryListView from '../views/QueryListView.vue'
+import HomeView from '../views/HomeView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

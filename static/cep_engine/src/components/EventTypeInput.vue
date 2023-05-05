@@ -20,7 +20,6 @@ const props = defineProps<Props>()
 let event_forms = ref(new Map<string, EventData>())
 
 function setSelection(form_id: string, event_name: any) {
-    console.log("setting selection")
     let selected = props.event_types.find(et => et.event_name === event_name) as EventTypes
     let form = event_forms.value.get(form_id) as EventData
     let previous = props.event_types.find(et => et.event_name === form.event_name) as EventTypes
@@ -33,7 +32,6 @@ function setSelection(form_id: string, event_name: any) {
     })
     // We have to clear out old fields if the field names don't match
     if(!fields_match) {
-        console.log("clearing values")
         let event_field_values = new Map<string, number | string>()
         selected.event_fields.forEach((field_name) => {
             // @ts-ignore
@@ -44,10 +42,8 @@ function setSelection(form_id: string, event_name: any) {
             "event_fields": event_field_values
         }
     } else {
-        console.log("not clearing values")
         form["event_name"] = selected.event_name
     }
-    console.log("saving result")
     event_forms.value.set(form_id, form)
 }
 
@@ -62,9 +58,6 @@ function updateEventInput(form_id: string, event_name: string, event_field: stri
 }
 
 function submitEventInputs() {
-    console.log(`Submit button was clicked.`)
-    console.log(`Current form data:`)
-    console.log(event_forms.value)
     let events: [string, {field_name: string, field_value: string}[]][] = Array.from(event_forms.value.entries()).map((elem) => {
         let form_id = elem[0]
         let event_data: EventData = elem[1]
@@ -77,20 +70,11 @@ function submitEventInputs() {
         return [event_data.event_name, field_objects]
     })
 
-    console.log("Sending this to backend:")
-    console.log(JSON.stringify({
-            query_id: props.query_id,
-            events: events
-        }))
     call("/query/send_events", "POST", {
             query_id: props.query_id,
             events: events
     })
     .then((res) => res.json() )
-    .then((data) => {
-        console.log(`Event input response:`)
-        console.log(data)
-    })
 
 }
 

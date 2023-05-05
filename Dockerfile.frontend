@@ -22,8 +22,7 @@ SHELL ["/bin/bash", "-c"]
 
 RUN cd /app && npm run build
 
-RUN rm /app/src -rf
-RUN rm /app/node_modules -rf
+# RUN rm /app/src -rf
 
 RUN chmod 700 -R /app
 RUN chown app:appgroup -R /app
@@ -34,4 +33,5 @@ EXPOSE 3000
 
 USER app
 
-ENTRYPOINT ["/bin/bash", "-c", "cd /app && npx serve -l 3000 -s dist"]
+# ENTRYPOINT ["/bin/bash", "-c", "cd /app && npx serve -l 3000 -s dist"]
+ENTRYPOINT ["/bin/bash", "-c", "sleep infinity"]

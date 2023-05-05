@@ -132,7 +132,6 @@ function handleAST(ast: any) {
     };
     parsed_ets.push(et);
   }
-  console.log(parsed_ets);
   query_event_types.value = parsed_ets;
 }
 
@@ -238,7 +237,6 @@ function getEarlier() {
 }
 
 function onScroll(event: UIEvent) {
-  // console.log(`offsetHeight: ${(event.target as HTMLElement).offsetHeight} - scrollTop: ${(event.target as HTMLElement).scrollTop}`)
   if ((event.target as HTMLElement).scrollTop === 0) {
     // scrolled to the top
     getLater();

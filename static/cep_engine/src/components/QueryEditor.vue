@@ -7,6 +7,7 @@ import {backendIp} from '../config'
 import type {editor} from "monaco-editor"
 import router from '@/router'
 import call from '@/utils/networking'
+import { logger } from '@/utils/logging'
 
 
 const queryStore = useQueryStore()
@@ -20,11 +21,6 @@ function submitQuery() {
     })
     .then((resp) => resp.json())
     .then((data) => {
-        console.log("Query Submission Response:")
-        console.log(JSON.stringify(data))
-        // let queryToAdd: Query = {
-        //     queryId: data["query_id"],
-        //     query: query.value
         // }
         let queryToAdd = new Query(Number(data["query_id"]), query.value)
         if(data['ok'] === 1) {
@@ -36,8 +32,7 @@ function submitQuery() {
         }
     })
     .catch((err) => {
-        console.log("Query Submission Error")
-        console.log(err)
+        logger.error(err)
     })
 }
 
@@ -47,8 +42,6 @@ function parseQuery() {
     })
     .then((resp) => resp.json())
     .then((data) => {
-        console.log("Query Submission Response:")
-        console.log(JSON.stringify(data))
         if(data['ok'] === 1) {
             output.value = JSON.stringify(JSON.parse(data["ast"]), null, 2)
         } else {
@@ -56,8 +49,7 @@ function parseQuery() {
         }
     })
     .catch((err) => {
-        console.log("Query Submission Error")
-        console.log(err)
+        logger.error(err)
     })
 }
 
@@ -92,7 +84,6 @@ function getCode() {
 function getEditorValue() {
     if(query_editor !== null) {
         let query_string = query_editor.getValue()
-        console.log(`Query String: ${query_string}`)
         return query_string
     }
     return ""
