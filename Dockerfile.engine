@@ -1,0 +1,20 @@
+FROM ubuntu:latest
+
+WORKDIR /app
+
+
+
+RUN chmod 700 -R /app
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update
+RUN apt-get install -y default-jre
+
+COPY ./server/target/scala-2.13/cep-engine-server-assembly-1.0.jar /app/engine.jar
+
+EXPOSE 8000
+
+ENTRYPOINT ["/bin/bash", "-c", "java -Xmx3G -jar /app/engine.jar"]
+# ENTRYPOINT ["/bin/bash", "-c", "/app/run.sh"]
+# ENTRYPOINT ["/bin/bash", "-c", "sleep infinity"]

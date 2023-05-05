@@ -25,7 +25,7 @@ def submit_query(query_string):
     visited = CEPVisitor().visit(tree)
     json_query = json.dumps(visited.__dict__) + os.linesep
     print(json_query)
-    resp = post('http://localhost:8000/query', data=json_query)    
+    resp = post('http://engine:8000/query', data=json_query)    
     print(resp.text)
     j = json.loads(resp.text)
     if j['ok']:
@@ -38,7 +38,7 @@ def get_plan(query_string):
     visited = CEPVisitor().visit(tree)
     json_query = json.dumps(visited.__dict__) + os.linesep
 
-    resp = post('http://localhost:8000/query/plan', data=json_query)
+    resp = post('http://engine:8000/query/plan', data=json_query)
     return json.loads(resp.text)['plan']
 
 def get_ast(query_string):
@@ -48,7 +48,7 @@ def get_ast(query_string):
     return ast
 
 def get_all_queries():
-    resp = get('http://localhost:8000/query')
+    resp = get('http://engine:8000/query')
     parsed = json.loads(resp.text)
     print(f"Fetched query: \n{parsed}")
     return parsed['queries']
@@ -59,7 +59,7 @@ def delete_query(query_string):
     visited = CEPVisitor().visit(tree)
     json_query = json.dumps(visited.__dict__) + os.linesep
     # print(json_query)
-    resp = post('http://localhost:8000/query/delete', data=json_query)
+    resp = post('http://engine:8000/query/delete', data=json_query)
     print("Delete Query response:")
     print(resp.text)
     try:
@@ -78,7 +78,7 @@ app.config['SECRET_KEY'] = 'secret!'
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-CORS(app)
+CORS(app, origins=["*"])
 # Map room names to threads
 emit_threads: Dict[str, Thread] = {}
 
@@ -269,7 +269,7 @@ def get_recent_messages(consumer: KafkaConsumer, topic: str, most_recent: int = 
 
 def send_data(query_id, cons: KafkaConsumer = None):
     ws_room = room_name(query_id)
-    consumer = cons or KafkaConsumer(f"output-{query_id}", group_id=f'query-{query_id}')
+    consumer = cons or KafkaConsumer(f"output-{query_id}", group_id=f'query-{query_id}', bootstrap_servers=["kaf:9092"])
     print(f"Reading from topic output-{query_id}, consumer group: query-{query_id}")
     while True:
         matches = consumer.poll(1000)
@@ -307,7 +307,7 @@ def room_name(query_id) -> str:
 def check_stream(event):
     try:
         logger.info("====== Received stream_range from client ========")
-        consumer = KafkaConsumer(group_id=f'consumer-{time.time()}', value_deserializer=lambda msg: json.loads(msg))
+        consumer = KafkaConsumer(group_id=f'consumer-{time.time()}', value_deserializer=lambda msg: json.loads(msg), bootstrap_servers=["kaf:9092"])
         topic = f"output-{event['query_id']}"
         topic_part = TopicPartition(topic, 0)
         consumer.assign([topic_part])
@@ -327,7 +327,7 @@ def check_stream(event):
 def read_stream(event):
     try:
         print("=== Received read_stream from client === ")
-        consumer = KafkaConsumer(group_id=f'consumer-{time.time()}', value_deserializer=lambda msg: json.loads(msg))
+        consumer = KafkaConsumer(group_id=f'consumer-{time.time()}', value_deserializer=lambda msg: json.loads(msg), bootstrap_servers=["kaf:9092"])
         topic = f"output-{event['query_id']}"
         topic_part = TopicPartition(topic, 0)
         consumer.assign([topic_part])
@@ -360,9 +360,11 @@ def all_queries():
         # for p in pretty:
         #     print(p)
         print("Returning all queries")
-        return jsonify({"queries": pretty})
-    except e:
+        return jsonify({"queries": pretty, 'ok': 1})
+    except Exception as e:
+        print("Exception raised and caught")
         print(f"{str(e)}")
+        return jsonify({"ok": 0})
 
 
 @app.route('/query', methods=['POST', 'PUT'])
@@ -418,7 +420,7 @@ def query_ast():
             return jsonify({'ok': 0, 'err': "Query ID does not exist or is not associated with active query"})
 
 def send_event(qid: int, event: Tuple[str, List[Dict[str, int]]]):
-    p = KafkaProducer(bootstrap_servers='localhost')
+    p = KafkaProducer(bootstrap_servers=["kaf:9092"])
     data = {
         'event_type': event[0],
         'fields': event[1]

@@ -1,0 +1,76 @@
+version: "3"
+
+services:
+  zoo:
+    image: kale120/zoo:latest
+    container_name: zoo
+    build:
+      context: .
+      dockerfile: Dockerfile.zoo.alpine
+    ports:
+      - "2888:2888"
+      - "3888:3888"
+      - "2181:2181"
+    # volumes:
+    #   - message_queue:/app/kafka/kafka_2.13-3.1.0/kafka-data
+    networks:
+      - combine
+
+  kaf:
+    depends_on:
+      - zoo
+    image: kale120/kaf:latest
+    container_name: kaf
+    build:
+      context: .
+      dockerfile: Dockerfile.kaf.alpine
+    ports:
+      - "9092:9092"
+    # volumes:
+    #   - message_queue:/app/kafka/kafka_2.13-3.1.0/kafka-data
+    networks:
+      - combine
+  
+  engine:
+    depends_on:
+      - kaf
+    image: kale120/engine:latest
+    container_name: engine
+    build:
+      context: .
+      dockerfile: Dockerfile.engine.alpine
+    networks:
+      - combine
+    ports:
+      - "8000:8000"
+
+  web:
+    depends_on:
+      - engine
+    image: kale120/web:latest
+    container_name: web
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    networks:
+      - combine
+    environment:
+      - DEBUG=1
+    ports:
+      - "5000:5000"
+  
+  frontend:
+    depends_on:
+      - web
+    image: kale120/frontend:latest
+    container_name: frontend
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+
+networks:
+  combine:
+    name: combine
+    driver: bridge

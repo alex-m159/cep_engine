@@ -1,0 +1,23 @@
+FROM alpine:latest
+
+WORKDIR /app
+
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# RUN apk update && apk add --no-cache openjdk20
+
+RUN apk add openjdk17-jre-headless bash --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+RUN addgroup -S appgroup && adduser -S app -G appgroup
+
+COPY ./kafka /app/kafka
+
+RUN chown app:appgroup -R /app
+RUN chmod 700 -R /app
+
+EXPOSE 9092
+
+USER app
+
+ENTRYPOINT ["/bin/bash", "-c", "/app/kafka/kafka_2.13-3.1.0/bin/start-kaf.sh"]
+# ENTRYPOINT ["/bin/bash", "-c", "sleep infinity"]

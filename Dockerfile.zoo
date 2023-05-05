@@ -1,0 +1,21 @@
+FROM ubuntu:latest
+
+WORKDIR /app
+
+
+
+RUN chmod 700 -R /app
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update
+RUN apt-get install -y default-jre
+
+COPY ./kafka /app/kafka
+
+EXPOSE 2888
+EXPOSE 3888
+EXPOSE 2181
+
+ENTRYPOINT ["/bin/bash", "-c", "/app/kafka/kafka_2.13-3.1.0/bin/start-zoo.sh"]
+# ENTRYPOINT ["/bin/bash", "-c", "sleep infinity"]

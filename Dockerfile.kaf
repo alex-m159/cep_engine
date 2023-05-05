@@ -1,0 +1,19 @@
+FROM ubuntu:latest
+
+WORKDIR /app
+
+
+
+RUN chmod 700 -R /app
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update
+RUN apt-get install -y default-jre
+
+COPY ./kafka /app/kafka
+
+EXPOSE 9092
+
+ENTRYPOINT ["/bin/bash", "-c", "sleep 3 && /app/kafka/kafka_2.13-3.1.0/bin/start-kaf.sh"]
+# ENTRYPOINT ["/bin/bash", "-c", "sleep infinity"]

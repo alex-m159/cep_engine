@@ -1,0 +1,24 @@
+FROM alpine:latest
+
+WORKDIR /app
+
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# RUN apk update && apk add --no-cache openjdk20
+
+RUN apk add openjdk17-jre-headless bash --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+RUN addgroup -S appgroup && adduser -S app -G appgroup
+
+COPY ./server/target/scala-2.13/cep-engine-server-assembly-1.0.jar /app/engine.jar
+
+RUN chown app:appgroup -R /app
+RUN chmod 700 -R /app
+
+EXPOSE 8000
+
+USER app
+
+ENTRYPOINT ["/bin/bash", "-c", "java -Xmx3G -jar /app/engine.jar"]
+# ENTRYPOINT ["/bin/bash", "-c", "/app/run.sh"]
+# ENTRYPOINT ["/bin/bash", "-c", "sleep infinity"]

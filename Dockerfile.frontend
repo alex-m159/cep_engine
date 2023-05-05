@@ -1,0 +1,37 @@
+FROM ubuntu:latest
+
+WORKDIR /app
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update
+RUN apt-get install -y curl
+RUN cd /root
+RUN curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
+RUN chmod 700 nodesource_setup.sh
+RUN ./nodesource_setup.sh
+RUN apt-get install -y nodejs
+RUN groupadd appgroup
+RUN useradd --create-home --shell /bin/bash app -g appgroup
+
+COPY ./static/cep_engine /app/
+
+
+
+SHELL ["/bin/bash", "-c"]
+
+RUN cd /app && npm run build
+
+RUN rm /app/src -rf
+RUN rm /app/node_modules -rf
+
+RUN chmod 700 -R /app
+RUN chown app:appgroup -R /app
+
+
+
+EXPOSE 3000
+
+USER app
+
+ENTRYPOINT ["/bin/bash", "-c", "cd /app && npx serve -l 3000 -s dist"]

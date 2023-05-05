@@ -5,4 +5,12 @@
 # Without Gunicorn the SocketIO communication will fallback to polling since the Flask
 # debug server can't handle it.
 #
-gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 client:app -b localhost:5000
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+cd $SCRIPT_DIR
+if [ "$DEBUG" -eq "1" ]; 
+then
+    # source /app/venv-docker/bin/activate && python /app/client.py
+    sleep infinity
+else
+    source /app/venv-docker/bin/activate && gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 client:app -b 0.0.0.0:5000
+fi
